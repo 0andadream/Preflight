@@ -1,0 +1,11 @@
+node_modules
+.next
+out
+.DS_Store
+.env
+.env.local
+.data
+contracts/cache
+contracts/out
+contracts/broadcast
+*.log

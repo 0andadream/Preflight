@@ -1,0 +1,58 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body {
+  background: #07080a;
+  color: #ece8dc;
+}
+
+body {
+  min-height: 100vh;
+  background-image:
+    radial-gradient(880px 420px at 0% -8%, rgba(198, 240, 77, 0.05), transparent 52%),
+    linear-gradient(180deg, #07080a 0%, #0b0c0f 100%);
+}
+
+::selection {
+  background: #c6f04d;
+  color: #07080a;
+}
+
+.hairline {
+  border-color: rgba(236, 232, 220, 0.08);
+}
+
+.panel {
+  @apply border border-white/[0.07] bg-ink-800;
+}
+
+.mono-label {
+  @apply font-mono text-[10px] uppercase tracking-[0.18em] text-paper-500;
+}
+
+.btn {
+  @apply inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-40;
+}
+
+.btn-lime {
+  @apply btn bg-lime text-ink hover:bg-lime-200;
+}
+
+.btn-ghost {
+  @apply btn border border-white/10 text-paper-300 hover:border-lime/40 hover:text-lime;
+}
+
+.btn-block {
+  @apply btn border border-block/40 text-block hover:bg-block/10;
+}
+
+.scanline {
+  background-image: linear-gradient(rgba(236, 232, 220, 0.025) 1px, transparent 1px);
+  background-size: 100% 4px;
+}
