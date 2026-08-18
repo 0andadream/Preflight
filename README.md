@@ -55,7 +55,13 @@ pnpm dev
 pnpm test
 ```
 
-Attestation on X Layer testnet is unchanged:
+Attestation is live on **X Layer testnet** (1952):
+
+| | |
+|---|---|
+| Contract | `0xe366979430FA3874DfBFAf7579484D5F8a1aBB1D` |
+| Deploy tx | `0x54b6540164f5266f7f5d13a58ed1d2f41e53fd0911d3777a0eaaf1d77e1edd69` |
+| Explorer | https://www.okx.com/web3/explorer/xlayer-test/address/0xe366979430FA3874DfBFAf7579484D5F8a1aBB1D |
 
 ```bash
 cd contracts
@@ -63,8 +69,6 @@ forge test -vv
 export PRIVATE_KEY=0x…
 forge script script/Deploy.s.sol --rpc-url https://testrpc.xlayer.tech/terigon --broadcast --legacy
 ```
-
-Then set `NEXT_PUBLIC_ATTESTATION_ADDRESS` and `ATTESTER_PRIVATE_KEY`.
 
 ---
 

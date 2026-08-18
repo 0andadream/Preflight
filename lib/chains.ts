@@ -10,7 +10,7 @@ export const xLayer = defineChain({
     },
   },
   blockExplorers: {
-    default: { name: "OKX Explorer", url: "https://www.okx.com/web3/explorer/xlayer" },
+    default: { name: "XLayerScan", url: "https://xlayerscan.com" },
   },
 });
 
@@ -33,13 +33,13 @@ export const xLayerTestnet = defineChain({
 });
 
 export function explorerTx(chainId: number, hash: string) {
-  if (chainId === 196) return `https://www.okx.com/web3/explorer/xlayer/tx/${hash}`;
+  if (chainId === 196) return `https://xlayerscan.com/tx/${hash}`;
   if (chainId === 1952) return `https://www.okx.com/web3/explorer/xlayer-test/tx/${hash}`;
   return `#${hash}`;
 }
 
 export function explorerAddress(chainId: number, address: string) {
-  if (chainId === 196) return `https://www.okx.com/web3/explorer/xlayer/address/${address}`;
+  if (chainId === 196) return `https://xlayerscan.com/address/${address}`;
   if (chainId === 1952) return `https://www.okx.com/web3/explorer/xlayer-test/address/${address}`;
   return `#${address}`;
 }
