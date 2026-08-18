@@ -37,7 +37,7 @@ export function evaluateBehavior(intent: TransactionIntent, history: BehaviorEve
       severity: "HIGH",
       expected: `≤ 2.5× median (${formatAmount(median, intent.token)})`,
       actual: formatAmount(intent.amount, intent.token),
-      explanation: `Amount is ${((intent.amount / median) * 10) / 10}× this agent's typical ${intent.token} size.`,
+      explanation: `Amount is ${(intent.amount / median).toFixed(1)}× this agent's typical ${intent.token} size.`,
     };
   }
 
