@@ -3,5 +3,7 @@
   "chainId": 1952,
   "contract": "0xe366979430FA3874DfBFAf7579484D5F8a1aBB1D",
   "deployTx": "0x54b6540164f5266f7f5d13a58ed1d2f41e53fd0911d3777a0eaaf1d77e1edd69",
-  "explorer": "https://www.okx.com/web3/explorer/xlayer-test/address/0xe366979430FA3874DfBFAf7579484D5F8a1aBB1D"
+  "explorer": "https://www.okx.com/web3/explorer/xlayer-test/address/0xe366979430FA3874DfBFAf7579484D5F8a1aBB1D",
+  "firewall": "0x57C84147255719060EDAa8F2B344ADB38F6a6a03",
+  "firewallTx": "0xdd3827bc93f3e77bb684796e211d84e6523d1062abf40604512492dd863ee9ee"
 }

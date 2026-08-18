@@ -9,7 +9,7 @@ export default function HomePage() {
       <Header />
       <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col px-5 pb-20 pt-14">
         <Logo className="h-16 w-16 sm:h-20 sm:w-20" />
-        <p className="mono-label mt-6 text-lime">Execution checkpoint · X Layer</p>
+        <p className="mono-label mt-6 text-lime">Network firewall · X Layer</p>
         <h1 className="mt-4 max-w-3xl text-4xl font-medium tracking-tight sm:text-6xl">
           PREflight
         </h1>
@@ -24,13 +24,16 @@ export default function HomePage() {
           Deterministic transaction security for autonomous agents on X Layer.
         </p>
         <p className="mt-3 max-w-2xl text-sm leading-relaxed text-paper-300">
-          PREflight evaluates what an AI agent is about to execute, enforces its transaction policy,
-          explains the risk, and creates a verifiable security receipt on X Layer.
+          Agents should call Preflight before they spend. The firewall also watches registered agent
+          addresses on X Layer: any mined spend without an ALLOW is recorded as a BLOCK.
         </p>
 
         <div className="mt-8 flex flex-wrap gap-3">
           <Link href="/preflight" className="btn-lime h-11 px-6">
             Run Preflight
+          </Link>
+          <Link href="/firewall" className="btn-ghost h-11 px-6">
+            Open firewall
           </Link>
           <Link href="/attestations" className="btn-ghost h-11 px-6">
             View attestations

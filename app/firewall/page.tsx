@@ -1,0 +1,183 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { Header } from "@/components/Header";
+import type { Decision } from "@/types";
+
+type Hit = {
+  hash: `0x${string}`;
+  explorerUrl: string;
+  blockNumber: number;
+  from: string;
+  agent: string;
+  decision: Decision;
+  score: number;
+  gated: boolean;
+  kind: "spend" | "attestation";
+  intent: { action: string; token: string; amount: number; functionName: string | null };
+};
+
+type Payload = {
+  chainLabel: string;
+  chainId: number;
+  head: number;
+  agents: { address: string; agent: string }[];
+  hits: Hit[];
+  error?: string;
+};
+
+const tone: Record<Decision, string> = {
+  ALLOW: "text-allow",
+  WARN: "text-warn",
+  BLOCK: "text-block",
+};
+
+export default function FirewallPage() {
+  const [data, setData] = useState<Payload | null>(null);
+  const [address, setAddress] = useState("");
+  const [name, setName] = useState("");
+
+  async function load() {
+    const res = await fetch("/api/firewall?blocks=40", { cache: "no-store" });
+    const body = (await res.json()) as Payload;
+    setData(body);
+  }
+
+  useEffect(() => {
+    void load();
+    const id = window.setInterval(() => void load(), 8000);
+    return () => window.clearInterval(id);
+  }, []);
+
+  async function addAgent(e: React.FormEvent) {
+    e.preventDefault();
+    await fetch("/api/firewall/agents", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ address, agent: name || undefined }),
+    });
+    setAddress("");
+    setName("");
+    cacheBust();
+    void load();
+  }
+
+  function cacheBust() {
+    /* next scan rebuilds */
+  }
+
+  const hits = data?.hits ?? [];
+  const blocked = hits.filter((h) => h.decision === "BLOCK").length;
+  const spends = hits.filter((h) => h.kind === "spend").length;
+
+  return (
+    <div className="min-h-screen">
+      <Header />
+      <main className="mx-auto max-w-6xl px-5 py-10">
+        <p className="mono-label text-lime">X Layer · live watcher</p>
+        <h1 className="mt-3 text-3xl font-medium tracking-tight">Firewall</h1>
+        <p className="mt-2 max-w-2xl text-sm text-paper-300">
+          Watches registered agent addresses on X Layer. Every mined transaction is decoded and run
+          through the same deterministic engine. A spend without a Preflight ALLOW is a BLOCK.
+          Already-mined txs cannot be reverted; the agent should halt.
+        </p>
+
+        <div className="mt-8 grid gap-3 sm:grid-cols-4">
+          <Stat label="Head" value={data?.head ?? "—"} />
+          <Stat label="Agents" value={data?.agents.length ?? 0} />
+          <Stat label="Spends" value={spends} />
+          <Stat label="Blocked" value={blocked} accent="text-block" />
+        </div>
+
+        <section className="panel mt-6 p-5">
+          <div className="mono-label">Registered agents</div>
+          <ul className="mt-3 space-y-1 font-mono text-[11px] text-paper-300">
+            {(data?.agents ?? []).map((a) => (
+              <li key={a.address}>
+                {a.agent} · {a.address}
+              </li>
+            ))}
+          </ul>
+          <form onSubmit={addAgent} className="mt-4 flex flex-wrap gap-3">
+            <input
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
+              placeholder="0x agent address"
+              className="min-w-[280px] flex-1 border-b border-white/10 bg-transparent py-2 font-mono text-sm outline-none"
+            />
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Agent name"
+              className="w-48 border-b border-white/10 bg-transparent py-2 font-mono text-sm outline-none"
+            />
+            <button type="submit" className="btn-lime h-10 px-4">
+              Watch
+            </button>
+          </form>
+        </section>
+
+        <section className="panel mt-4 overflow-x-auto">
+          <table className="w-full text-left text-sm">
+            <thead className="border-b border-white/[0.06] font-mono text-[10px] uppercase tracking-[0.16em] text-paper-500">
+              <tr>
+                <th className="px-4 py-3">Block</th>
+                <th className="px-4 py-3">Agent</th>
+                <th className="px-4 py-3">Kind</th>
+                <th className="px-4 py-3">Intent</th>
+                <th className="px-4 py-3">Decision</th>
+                <th className="px-4 py-3">Score</th>
+                <th className="px-4 py-3">Gate</th>
+                <th className="px-4 py-3">Tx</th>
+              </tr>
+            </thead>
+            <tbody>
+              {hits.map((row) => (
+                <tr key={row.hash} className="border-b border-white/[0.04]">
+                  <td className="px-4 py-3 font-mono text-[11px] text-paper-500">{row.blockNumber}</td>
+                  <td className="px-4 py-3">{row.agent}</td>
+                  <td className="px-4 py-3 font-mono text-[11px] uppercase text-paper-500">{row.kind}</td>
+                  <td className="px-4 py-3 font-mono text-[11px] text-paper-300">
+                    {row.intent.action} {row.intent.functionName ? `· ${row.intent.functionName}` : ""}
+                  </td>
+                  <td className={`px-4 py-3 font-mono text-[11px] ${tone[row.decision]}`}>{row.decision}</td>
+                  <td className="px-4 py-3 font-mono tabular-nums">{row.score}</td>
+                  <td className={`px-4 py-3 font-mono text-[11px] ${row.gated ? "text-allow" : "text-block"}`}>
+                    {row.gated ? "PASS" : "BYPASS"}
+                  </td>
+                  <td className="px-4 py-3 font-mono text-[11px]">
+                    <a className="text-lime hover:underline" href={row.explorerUrl} target="_blank" rel="noreferrer">
+                      {row.hash.slice(0, 10)}…
+                    </a>
+                  </td>
+                </tr>
+              ))}
+              {data && hits.length === 0 && (
+                <tr>
+                  <td colSpan={8} className="px-4 py-10 text-center text-sm text-paper-500">
+                    No agent transactions in the last 40 blocks.{" "}
+                    <Link href="/preflight" className="text-lime">
+                      Run a preflight
+                    </Link>{" "}
+                    to generate an attestation write.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </section>
+        {data?.error && <p className="mt-4 font-mono text-sm text-block">{data.error}</p>}
+      </main>
+    </div>
+  );
+}
+
+function Stat({ label, value, accent }: { label: string; value: number | string; accent?: string }) {
+  return (
+    <div className="panel p-4">
+      <div className="mono-label">{label}</div>
+      <div className={`mt-2 font-mono text-3xl tabular-nums ${accent ?? ""}`}>{value}</div>
+    </div>
+  );
+}

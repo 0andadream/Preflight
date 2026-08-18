@@ -62,6 +62,7 @@ Attestation is live on **X Layer testnet** (1952):
 | Contract | `0xe366979430FA3874DfBFAf7579484D5F8a1aBB1D` |
 | Deploy tx | `0x54b6540164f5266f7f5d13a58ed1d2f41e53fd0911d3777a0eaaf1d77e1edd69` |
 | Explorer | https://www.okx.com/web3/explorer/xlayer-test/address/0xe366979430FA3874DfBFAf7579484D5F8a1aBB1D |
+| Firewall | `0x57C84147255719060EDAa8F2B344ADB38F6a6a03` |
 
 ```bash
 cd contracts
