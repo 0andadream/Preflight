@@ -40,6 +40,13 @@ export function intentFromRequest(input: PreflightRequest): TransactionIntent {
       functionName: "approve",
     });
   }
+  if (input.scenario === "anomaly") {
+    return baseIntent({
+      amount: 900,
+      recipient: TREASURY_VAULT,
+      functionName: "transfer",
+    });
+  }
 
   const action = (input.action || "transfer") as TxAction;
   const decoded = action !== "contract" || Boolean(input.functionName);

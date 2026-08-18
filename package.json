@@ -8,6 +8,7 @@
     "build": "next build",
     "start": "next start",
     "test": "npx tsx --test lib/**/*.test.ts",
+    "mcp": "npx tsx mcp/server.ts",
     "contracts:build": "cd contracts && forge build",
     "contracts:test": "cd contracts && forge test -vv"
   },

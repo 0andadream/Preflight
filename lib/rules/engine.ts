@@ -4,6 +4,7 @@ import {
   labelAddress,
   normalizeToken,
 } from "@/lib/policy/defaults";
+import { evaluateBehavior, type BehaviorEvent } from "@/lib/behavior/anomaly";
 import { simulateTransaction } from "@/lib/simulation/simulate";
 import type { AgentPolicy, RuleResult, TransactionIntent } from "@/types";
 
@@ -18,7 +19,11 @@ function inList(value: string, list: string[]): boolean {
   return list.some((item) => item.trim().toLowerCase() === v);
 }
 
-export function evaluateTransaction(intent: TransactionIntent, policy: AgentPolicy): RuleResult[] {
+export function evaluateTransaction(
+  intent: TransactionIntent,
+  policy: AgentPolicy,
+  history: BehaviorEvent[] = [],
+): RuleResult[] {
   return [
     spendLimit(intent, policy),
     tokenAllowlist(intent, policy),
@@ -28,6 +33,7 @@ export function evaluateTransaction(intent: TransactionIntent, policy: AgentPoli
     slippageLimit(intent, policy),
     simulateTransaction(intent),
     gasAnomaly(intent),
+    evaluateBehavior(intent, history),
   ];
 }
 

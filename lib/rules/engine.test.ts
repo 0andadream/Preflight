@@ -4,6 +4,7 @@ import { deterministicExplanation } from "@/lib/ai/explain";
 import { buildRecord, hashRecord } from "@/lib/attestation/pdr";
 import { intentFromRequest } from "@/lib/demo/scenarios";
 import { TREASURY_VAULT, UNKNOWN_ADDRESS, policyForAgent } from "@/lib/policy/defaults";
+import { demoBaseline } from "@/lib/behavior/anomaly";
 import { evaluateTransaction } from "@/lib/rules/engine";
 import { computeScore, decide } from "@/lib/scoring/score";
 
@@ -77,6 +78,14 @@ describe("transaction security engine", () => {
     const hashB = hashRecord(buildRecord(rec));
     assert.equal(hashA, hashB);
     assert.match(hashA, /^0x[0-9a-f]{64}$/);
+  });
+
+  it("WARNs a historically large but policy-legal transfer", () => {
+    const { intent, policy } = run({ scenario: "anomaly" });
+    const checks = evaluateTransaction(intent, policy, demoBaseline(intent.agent));
+    assert.equal(decide(checks), "WARN");
+    assert.equal(checks.find((c) => c.id === "behavioral_anomaly")?.status, "WARN");
+    assert.equal(checks.find((c) => c.id === "spend_limit")?.status, "PASS");
   });
 
   it("never lets the explanation rewrite the decision", () => {

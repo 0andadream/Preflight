@@ -17,7 +17,7 @@ export async function POST(req: Request) {
     value?: number;
     slippageBps?: number;
     transactionData?: string;
-    scenario?: "safe" | "over-limit" | "unlimited-approval";
+    scenario?: "safe" | "over-limit" | "unlimited-approval" | "anomaly";
     attest?: boolean;
   };
 

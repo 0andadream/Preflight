@@ -47,7 +47,7 @@ export function PreflightApp() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  async function run(opts: { scenario?: "safe" | "over-limit" | "unlimited-approval" } = {}) {
+  async function run(opts: { scenario?: "safe" | "over-limit" | "unlimited-approval" | "anomaly" } = {}) {
     if (opts.scenario === "over-limit") {
       setAction("transfer");
       setToken("USDT");
@@ -60,6 +60,12 @@ export function PreflightApp() {
       setAmount(-1);
       setRecipient(UNKNOWN_ADDRESS);
     }
+    if (opts.scenario === "anomaly") {
+      setAction("transfer");
+      setToken("USDT");
+      setAmount(900);
+      setRecipient(TREASURY_VAULT);
+    }
 
     setError(null);
     setBusy(true);
@@ -70,7 +76,7 @@ export function PreflightApp() {
     const timers = STEPS.map((_, i) => window.setTimeout(() => setStep(i + 1), 240 + i * 180));
 
     const body =
-      opts.scenario === "over-limit" || opts.scenario === "unlimited-approval"
+      opts.scenario === "over-limit" || opts.scenario === "unlimited-approval" || opts.scenario === "anomaly"
         ? { agent, scenario: opts.scenario }
         : {
             agent,
@@ -180,6 +186,14 @@ export function PreflightApp() {
             onClick={() => run({ scenario: "unlimited-approval" })}
           >
             Simulate unlimited approval
+          </button>
+          <button
+            type="button"
+            className="btn-ghost h-11 px-6"
+            disabled={busy}
+            onClick={() => run({ scenario: "anomaly" })}
+          >
+            Simulate anomaly
           </button>
           <span className="font-mono text-[11px] text-paper-500">
             Policy: max $1,000 · USDT / USDC / OKB · Treasury Vault

@@ -53,6 +53,11 @@ export async function appendHistory(result: PreflightResult): Promise<HistoryEnt
   return entry;
 }
 
+export async function listAgentHistory(agent: string) {
+  const all = await readAll();
+  return all.filter((i) => i.agent === agent);
+}
+
 export async function listHistory() {
   const items = await readAll();
   const today = new Date().toISOString().slice(0, 10);

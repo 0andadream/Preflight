@@ -72,6 +72,15 @@ forge script script/Deploy.s.sol --rpc-url https://testrpc.xlayer.tech/terigon -
 
 ---
 
+## Agent interfaces
+
+- **SDK** — `@preflight/sdk` (`sdk/src/index.ts`)
+- **MCP** — `pnpm mcp` (stdio: check, policy, history)
+- **x402** — `POST /api/preflight/paid` returns HTTP 402 until an EIP-712 `PAYMENT-SIGNATURE` is attached
+- **Behavior** — deterministic deviation from this agent's history (WARN only)
+
+See `/developers`.
+
 ## Agent API
 
 `POST /api/preflight`
