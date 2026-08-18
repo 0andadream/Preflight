@@ -1,7 +1,7 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { getAddress, isAddress } from "viem";
-import { DEMO_AGENT } from "@/lib/policy/defaults";
+import { AGENT_ROSTER, shortAddress } from "@/lib/policy/defaults";
 
 const FILE = path.join(process.cwd(), ".data", "agents.json");
 
@@ -11,30 +11,41 @@ export type RegisteredAgent = {
   chainId: number;
 };
 
-const BOOTSTRAP: RegisteredAgent[] = [
-  {
-    address: "0xce9D8a28b6C18158851eb1167294f5eA90CE17Ac",
-    agent: DEMO_AGENT,
-    chainId: 1952,
-  },
-];
+const BOOTSTRAP: RegisteredAgent[] = AGENT_ROSTER.map((a) => ({
+  address: a.address,
+  agent: a.name,
+  chainId: a.chainId,
+}));
 
 export async function listAgents(): Promise<RegisteredAgent[]> {
+  let saved: RegisteredAgent[] = [];
   try {
-    const raw = JSON.parse(await readFile(FILE, "utf8")) as RegisteredAgent[];
-    if (raw.length) return raw;
+    saved = JSON.parse(await readFile(FILE, "utf8")) as RegisteredAgent[];
   } catch {
-    /* empty */
+    saved = [];
   }
-  await saveAgents(BOOTSTRAP);
-  return BOOTSTRAP;
+
+  const byAddr = new Map<string, RegisteredAgent>();
+  for (const row of BOOTSTRAP) byAddr.set(row.address.toLowerCase(), row);
+  for (const row of saved) {
+    const key = row.address.toLowerCase();
+    const prev = byAddr.get(key);
+    const name =
+      !row.agent || row.agent === "Demo Treasury Agent" ? (prev?.agent ?? row.agent) : row.agent;
+    byAddr.set(key, { ...row, agent: name });
+  }
+
+  const merged = [...byAddr.values()];
+  await saveAgents(merged);
+  return merged;
 }
 
 export async function registerAgent(input: { address: string; agent?: string; chainId?: number }) {
   if (!isAddress(input.address)) throw new Error("invalid address");
+  const address = getAddress(input.address);
   const next: RegisteredAgent = {
-    address: getAddress(input.address),
-    agent: input.agent?.trim() || DEMO_AGENT,
+    address,
+    agent: input.agent?.trim() || `Agent ${shortAddress(address)}`,
     chainId: input.chainId ?? 1952,
   };
   const all = await listAgents();

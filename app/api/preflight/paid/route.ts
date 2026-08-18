@@ -41,7 +41,7 @@ export async function POST(req: Request) {
   };
 
   const result = await runPreflight({
-    agent: body.agent || "Demo Treasury Agent",
+    agent: body.agent || "Treasury Agent",
     action: body.action,
     token: body.token || "USDT",
     amount: body.amount,

@@ -1,6 +1,6 @@
 import {
-  DEMO_AGENT,
   OKX_DEX_ROUTER,
+  TREASURY_AGENT,
   TREASURY_VAULT,
   UNKNOWN_ADDRESS,
 } from "@/lib/policy/defaults";
@@ -8,7 +8,7 @@ import type { PreflightRequest, TransactionIntent, TxAction } from "@/types";
 
 export function baseIntent(partial: Partial<TransactionIntent> = {}): TransactionIntent {
   return {
-    agent: DEMO_AGENT,
+    agent: TREASURY_AGENT,
     chainId: 196,
     action: "transfer",
     token: "USDT",
@@ -51,7 +51,7 @@ export function intentFromRequest(input: PreflightRequest): TransactionIntent {
   const action = (input.action || "transfer") as TxAction;
   const decoded = action !== "contract" || Boolean(input.functionName);
   return baseIntent({
-    agent: input.agent?.trim() || DEMO_AGENT,
+    agent: input.agent?.trim() || TREASURY_AGENT,
     action,
     token: input.token || "USDT",
     amount: input.amount ?? 500,

@@ -63,7 +63,7 @@ const preflight = new PreflightClient({
 });
 
 const result = await preflight.check({
-  agent: "Demo Treasury Agent",
+  agent: "Treasury Agent",
   action: "transfer",
   token: "USDT",
   amount: 500,

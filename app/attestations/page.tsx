@@ -108,7 +108,7 @@ export default function AttestationsPage() {
                   <td className="px-4 py-3 font-mono text-[11px] text-paper-500">
                     {row.at.replace("T", " ").slice(11, 16)}
                   </td>
-                  <td className="px-4 py-3 text-paper-300">{row.agent ?? "Treasury Agent"}</td>
+                  <td className="px-4 py-3 text-paper-300">{row.agent || "—"}</td>
                   <td className="px-4 py-3 capitalize text-paper-300">{row.action}</td>
                   <td className="px-4 py-3 font-mono">{row.token}</td>
                   <td className="px-4 py-3 font-mono tabular-nums">{row.amountLabel}</td>

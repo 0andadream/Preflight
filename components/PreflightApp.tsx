@@ -3,11 +3,14 @@
 import { useMemo, useState } from "react";
 import { Logo } from "@/components/Logo";
 import {
+  AGENT_ROSTER,
   OKX_DEX_ROUTER,
+  TREASURY_AGENT,
   TREASURY_VAULT,
   UNKNOWN_ADDRESS,
   formatAmount,
   labelAddress,
+  profileForAgent,
 } from "@/lib/policy/defaults";
 import type { PreflightResult, RuleResult, TxAction } from "@/types";
 
@@ -37,7 +40,7 @@ function statusTone(status: RuleResult["status"]) {
 }
 
 export function PreflightApp() {
-  const [agent, setAgent] = useState("Demo Treasury Agent");
+  const [agent, setAgent] = useState(TREASURY_AGENT);
   const [action, setAction] = useState<TxAction>("transfer");
   const [token, setToken] = useState("USDT");
   const [amount, setAmount] = useState(500);
@@ -123,6 +126,7 @@ export function PreflightApp() {
   const style = result ? DECISION_STYLE[result.decision] : null;
   const fails = useMemo(() => result?.checks.filter((c) => c.status === "FAIL") ?? [], [result]);
   const targetLabel = labelAddress(recipient);
+  const profile = profileForAgent(agent);
 
   return (
     <div className="mx-auto w-full max-w-6xl px-5 py-10">
@@ -137,7 +141,20 @@ export function PreflightApp() {
       <section className="panel mt-8 p-5 sm:p-6">
         <div className="mono-label">Transaction intent</div>
         <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-          <Field label="Agent" value={agent} onChange={setAgent} />
+          <label className="block">
+            <span className="mono-label">Agent</span>
+            <select
+              value={agent}
+              onChange={(e) => setAgent(e.target.value)}
+              className="mt-1 w-full border-b border-white/10 bg-transparent py-2 font-mono text-lg outline-none"
+            >
+              {AGENT_ROSTER.map((a) => (
+                <option key={a.name} value={a.name}>
+                  {a.name}
+                </option>
+              ))}
+            </select>
+          </label>
           <label className="block">
             <span className="mono-label">Action</span>
             <select
@@ -216,7 +233,9 @@ export function PreflightApp() {
             Run paid preflight
           </button>
           <span className="font-mono text-[11px] text-paper-500">
-            Policy: max $1,000 · USDT / USDC / OKB · Treasury Vault
+            {profile
+              ? `${profile.name} · max $${profile.policy.maxTransactionAmount.toLocaleString()} · ${profile.policy.allowedTokens.join(" / ")} · ${profile.role}`
+              : agent}
           </span>
         </div>
       </section>

@@ -48,7 +48,7 @@ pnpm test
 
 ### Firewall — `/firewall`
 
-Watches `Demo Treasury Agent` (`0xce9D8a28b6C18158851eb1167294f5eA90CE17Ac`) on X Layer testnet. Paste another agent address to watch it too.
+Watches **Treasury Agent** (`0xce9D8a28b6C18158851eb1167294f5eA90CE17Ac`), plus Market Maker Agent and Ops Payout Agent. Paste another address to watch it too.
 
 ### Developers — `/developers`
 
@@ -71,17 +71,13 @@ All deterministic. The model cannot change `decision`, `score`, or rule status.
 9. Behavioral envelope (WARN only — never a BLOCK by itself)  
 10. Firewall gate (on-chain spend must have a prior ALLOW)
 
-Demo policy:
+Three demo agents, each with its own policy:
 
-```json
-{
-  "maxTransactionAmount": 1000,
-  "allowedTokens": ["USDT", "USDC", "OKB"],
-  "allowedRecipients": ["Treasury Vault"],
-  "allowedContracts": ["OKX DEX Router"],
-  "maxSlippageBps": 100
-}
-```
+| Agent | Limit | Tokens | Destination |
+|---|---|---|---|
+| Treasury Agent | $1,000 | USDT / USDC / OKB | Treasury Vault |
+| Market Maker Agent | $5,000 | USDT / USDC | OKX DEX Router |
+| Ops Payout Agent | $250 | USDT | Vendor Desk |
 
 ---
 
@@ -91,7 +87,7 @@ Demo policy:
 
 ```json
 {
-  "agent": "Demo Treasury Agent",
+  "agent": "Treasury Agent",
   "action": "transfer",
   "token": "USDT",
   "amount": 500,
@@ -116,7 +112,7 @@ import { PreflightClient } from "@preflight/sdk";
 
 const preflight = new PreflightClient({ baseUrl: "http://localhost:3000" });
 const result = await preflight.check({
-  agent: "Demo Treasury Agent",
+  agent: "Treasury Agent",
   action: "transfer",
   token: "USDT",
   amount: 500,

@@ -15,7 +15,7 @@ describe("firewall decode and gate", () => {
         value: 10n ** 18n,
         blockNumber: 1n,
       },
-      "Demo Treasury Agent",
+      "Treasury Agent",
       1952,
     );
     assert.equal(intent.action, "transfer");

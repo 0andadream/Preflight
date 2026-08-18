@@ -6,7 +6,7 @@
  *
  * Tools: preflight_check, preflight_policy, preflight_history
  */
-import { DEMO_POLICY } from "../lib/policy/defaults";
+import { policyForAgent } from "../lib/policy/defaults";
 import { runPreflight } from "../lib/preflight/run";
 import { listHistory } from "../lib/store/history";
 import type { TxAction } from "../types";
@@ -33,8 +33,16 @@ const tools = [
   },
   {
     name: "preflight_policy",
-    description: "Read the Demo Treasury Agent policy currently enforced by PREflight.",
-    inputSchema: { type: "object", properties: {} },
+    description: "Read a PREflight agent policy. Pass agent name: Treasury Agent, Market Maker Agent, or Ops Payout Agent.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        agent: {
+          type: "string",
+          description: "Treasury Agent | Market Maker Agent | Ops Payout Agent",
+        },
+      },
+    },
   },
   {
     name: "preflight_history",
@@ -44,11 +52,14 @@ const tools = [
 ];
 
 async function callTool(name: string, args: Record<string, unknown>) {
-  if (name === "preflight_policy") return DEMO_POLICY;
+  if (name === "preflight_policy") {
+    const params = args as { agent?: string };
+    return policyForAgent(params.agent || "Treasury Agent");
+  }
   if (name === "preflight_history") return listHistory();
   if (name === "preflight_check") {
     return runPreflight({
-      agent: String(args.agent || "Demo Treasury Agent"),
+      agent: String(args.agent || "Treasury Agent"),
       action: (args.action as TxAction) || "transfer",
       token: String(args.token || "USDT"),
       amount: args.amount == null ? 500 : Number(args.amount),

@@ -4,7 +4,7 @@ import { demoBaseline } from "@/lib/behavior/anomaly";
 import { decodeObservedTx, isAttestationCall, type ObservedTx } from "@/lib/firewall/decode";
 import { preflightGate } from "@/lib/firewall/gate";
 import { agentByAddress, listAgents, type RegisteredAgent } from "@/lib/firewall/registry";
-import { DEMO_AGENT, policyForAgent } from "@/lib/policy/defaults";
+import { TREASURY_AGENT, policyForAgent, shortAddress } from "@/lib/policy/defaults";
 import { evaluateTransaction } from "@/lib/rules/engine";
 import { computeScore, decide, riskLabel } from "@/lib/scoring/score";
 import type { Decision, RiskLabel, RuleResult, TransactionIntent } from "@/types";
@@ -84,14 +84,14 @@ export async function scanFirewall(lookback = 40): Promise<{
   const hits: FirewallHit[] = observed
     .map((tx) => {
       const reg = agentByAddress(agents, tx.from);
-      const name = reg?.agent || DEMO_AGENT;
+      const name = reg?.agent || `Agent ${shortAddress(tx.from)}`;
       const kind: FirewallHit["kind"] =
         tx.to?.toLowerCase() === ATTESTATION.toLowerCase() && isAttestationCall(tx.input)
           ? "attestation"
           : "spend";
       const intent = decodeObservedTx(tx, name, xLayerTestnet.id);
       const policy = policyForAgent(name);
-      const history = name === DEMO_AGENT ? demoBaseline(name) : [];
+      const history = name === TREASURY_AGENT ? demoBaseline(name) : [];
       const gate = preflightGate({
         isAttestationWrite: kind === "attestation",
         hadAllow: allowByAgent.has(name),
