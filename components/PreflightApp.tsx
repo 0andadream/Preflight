@@ -18,6 +18,7 @@ const STEPS = [
   "Contract",
   "Approval risk",
   "Slippage",
+  "Behavior",
   "Simulation",
 ] as const;
 
@@ -47,7 +48,9 @@ export function PreflightApp() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  async function run(opts: { scenario?: "safe" | "over-limit" | "unlimited-approval" | "anomaly" } = {}) {
+  async function run(
+    opts: { scenario?: "safe" | "over-limit" | "unlimited-approval" | "anomaly"; paid?: boolean } = {},
+  ) {
     if (opts.scenario === "over-limit") {
       setAction("transfer");
       setToken("USDT");
@@ -88,9 +91,18 @@ export function PreflightApp() {
           };
 
     try {
-      const res = await fetch("/api/preflight", {
+      const headers: Record<string, string> = { "content-type": "application/json" };
+      let path = "/api/preflight";
+      if (opts.paid) {
+        const sign = await fetch("/api/x402/demo-pay", { method: "POST" });
+        const signed = (await sign.json()) as { header?: string; error?: string };
+        if (!sign.ok || !signed.header) throw new Error(signed.error || "x402 sign failed");
+        headers["PAYMENT-SIGNATURE"] = signed.header;
+        path = "/api/preflight/paid";
+      }
+      const res = await fetch(path, {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers,
         body: JSON.stringify(body),
       });
       const data = (await res.json()) as PreflightResult & { error?: string };
@@ -195,6 +207,14 @@ export function PreflightApp() {
           >
             Simulate anomaly
           </button>
+          <button
+            type="button"
+            className="btn-lime h-11 px-6"
+            disabled={busy}
+            onClick={() => run({ paid: true })}
+          >
+            Run paid preflight
+          </button>
           <span className="font-mono text-[11px] text-paper-500">
             Policy: max $1,000 · USDT / USDC / OKB · Treasury Vault
           </span>
@@ -204,7 +224,7 @@ export function PreflightApp() {
       {phase !== "idle" && (
         <section className="panel mt-4 p-5">
           <div className="mono-label">Analyzing transaction</div>
-          <ul className="mt-3 grid gap-2 sm:grid-cols-3 lg:grid-cols-7">
+          <ul className="mt-3 grid gap-2 sm:grid-cols-4 lg:grid-cols-8">
             {STEPS.map((name, i) => {
               const done = step > i;
               return (
@@ -319,6 +339,23 @@ export function PreflightApp() {
                 </div>
               </div>
             </section>
+
+            {result.payment?.verified && (
+              <section className="panel p-5">
+                <div className="mono-label">x402 payment</div>
+                <div className="mt-3 text-sm text-allow">✓ Payment proof verified</div>
+                <dl className="mt-3 space-y-1 font-mono text-[11px] text-paper-300">
+                  <div className="flex flex-wrap gap-2">
+                    <dt className="text-paper-500">From</dt>
+                    <dd className="break-all">{result.payment.from}</dd>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <dt className="text-paper-500">Network</dt>
+                    <dd>{result.payment.network}</dd>
+                  </div>
+                </dl>
+              </section>
+            )}
 
             <section className="panel p-5">
               <div className="mono-label">Onchain attestation</div>

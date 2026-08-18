@@ -109,4 +109,12 @@ export type PreflightResult = {
   scoreBreakdown: ScoreBreakdown;
   record: PolicyDecisionRecord;
   attestation: AttestationResult;
+  payment?: {
+    verified: boolean;
+    settled: boolean;
+    from?: string;
+    scheme?: string;
+    network?: string;
+    note?: string;
+  };
 };

@@ -3,15 +3,6 @@ import { Header } from "@/components/Header";
 import { FlowStrip } from "@/components/FlowStrip";
 import { Logo } from "@/components/Logo";
 
-const SHIPPED = [
-  { k: "SDK", t: "Agent SDK", d: "Thin TypeScript client over POST /api/preflight." },
-  { k: "MCP", t: "MCP interface", d: "stdio tools: check, policy, history." },
-  { k: "Behavior", t: "Anomaly detection", d: "Deterministic deviation from this agent's history. Warns — never overrides a policy BLOCK." },
-  { k: "x402", t: "Paid checks", d: "HTTP 402 + EIP-712 payment proof for POST /api/preflight/paid." },
-];
-
-const ROADMAP = ["Wallet integrations", "Multi-chain expansion"];
-
 export default function HomePage() {
   return (
     <div className="flex min-h-screen flex-col">
@@ -58,7 +49,7 @@ export default function HomePage() {
             {
               k: "Check",
               t: "Read the intended transaction",
-              d: "Spend limit, token, recipient, contract, approval risk, slippage, and simulation on X Layer.",
+              d: "Policy, token, recipient, contract, approval, slippage, simulation, and behavioral envelope on X Layer.",
             },
             {
               k: "Decide",
@@ -87,29 +78,7 @@ export default function HomePage() {
           </p>
         </section>
 
-        <section className="mt-14">
-          <div className="mono-label">Now shipping</div>
-          <div className="mt-4 grid gap-4 md:grid-cols-2">
-            {SHIPPED.map((card) => (
-              <article key={card.k} className="panel p-5">
-                <div className="mono-label text-lime">{card.k}</div>
-                <h2 className="mt-2 text-lg">{card.t}</h2>
-                <p className="mt-2 text-sm leading-relaxed text-paper-300">{card.d}</p>
-              </article>
-            ))}
-          </div>
-        </section>
 
-        <section className="mt-10">
-          <div className="mono-label">Still roadmap</div>
-          <p className="mt-3 flex flex-wrap gap-2">
-            {ROADMAP.map((item) => (
-              <span key={item} className="border border-white/10 px-2 py-1 font-mono text-[11px] text-paper-500">
-                {item}
-              </span>
-            ))}
-          </p>
-        </section>
       </main>
     </div>
   );
