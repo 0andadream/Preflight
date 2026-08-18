@@ -1,59 +1,58 @@
 import OpenAI from "openai";
-import type { Decision, Explanation, ObservedConfig, RuleResult, TransactionIntent } from "@/types";
+import { formatAmount, labelAddress } from "@/lib/policy/defaults";
+import type { Decision, Explanation, RuleResult, TransactionIntent } from "@/types";
 
 export function deterministicExplanation(input: {
   decision: Decision;
   score: number;
   checks: RuleResult[];
   intent: TransactionIntent;
-  observed: ObservedConfig;
 }): Explanation {
   const fails = input.checks.filter((c) => c.status === "FAIL");
-  const warns = input.checks.filter((c) => c.status === "WARN");
-  const primary = fails[0] ?? warns[0];
+  const spend = fails.find((c) => c.id === "spend_limit");
+  const recipient = fails.find((c) => c.id === "recipient_allowlist");
+  const contract = fails.find((c) => c.id === "contract_allowlist");
+  const approval = fails.find((c) => c.id === "unlimited_approval");
+  const token = fails.find((c) => c.id === "token_allowlist");
 
   if (input.decision === "ALLOW") {
     return {
-      summary: `The ${input.intent.amount.toLocaleString()} ${input.intent.token} transfer from ${input.intent.sourceChain} to ${input.intent.destinationChain} satisfies the agent's security assumptions and spending policy.`,
-      mainRisk: "None material. Pathway configuration matches the expected LayerZero security stack.",
-      remediation: "Proceed with execution. Re-run Preflight immediately before sending if configuration can change.",
+      summary: `I allowed this ${input.intent.action} of ${formatAmount(input.intent.amount, input.intent.token)} on X Layer. It stays inside the agent's policy.`,
+      mainRisk: "None material.",
+      remediation: "Proceed with execution. Re-run Preflight if the intent changes.",
       source: "deterministic",
     };
   }
 
   const parts: string[] = [];
-  const dvn = fails.find((c) => c.id === "dvn_threshold");
-  const amount = fails.find((c) => c.id === "agent_policy_amount");
-  const dest = fails.find((c) => c.id === "agent_policy_destination");
-
-  if (dvn) {
+  if (spend) {
     parts.push(
-      `The transaction was refused because the LayerZero DVN threshold for the selected route changed from ${dvn.expected} to ${dvn.actual}.`,
+      `I refused this transaction because it requests ${formatAmount(input.intent.amount, input.intent.token)}, which exceeds the agent's configured ${spend.expected} transaction limit.`,
     );
   }
-  if (amount) {
-    parts.push(
-      `The requested $${input.intent.amount.toLocaleString()} transfer exceeds the agent's configured ${amount.expected.replace("≤ ", "")} transaction limit.`,
-    );
+  if (recipient) {
+    parts.push("The recipient is not approved.");
   }
-  if (dest) {
-    parts.push(`Destination ${input.intent.destinationChain} is not in the agent's allowlist.`);
+  if (contract) {
+    parts.push(`The destination contract (${labelAddress(input.intent.contract || input.intent.recipient)}) is not on the approved contract list.`);
   }
-  if (!dvn && !amount && !dest && primary) {
-    parts.push(`${primary.name} ${primary.status}: ${primary.explanation}`);
+  if (approval) {
+    parts.push("Unlimited token approval to an unapproved contract creates significant asset-loss risk.");
+  }
+  if (token) {
+    parts.push(`${input.intent.token} is not on the token allowlist.`);
+  }
+  if (parts.length === 0 && fails[0]) {
+    parts.push(fails[0].explanation);
   }
 
-  const summary =
-    parts.join(" ") ||
-    `Preflight returned ${input.decision} with score ${input.score}. One or more security assumptions no longer hold.`;
-
-  const remediation = fails.some((c) => c.id.startsWith("dvn") || c.id.startsWith("agent_policy"))
-    ? "Do not execute until the DVN configuration is restored and the agent policy is updated."
-    : `Restore the expected ${primary?.name ?? "configuration"} or explicitly update the security policy before retrying.`;
+  const remediation = approval
+    ? "Do not execute. Grant a finite allowance to a trusted contract, or add this spender to the policy first."
+    : "Reduce the transaction amount or explicitly approve this recipient/contract before retrying.";
 
   return {
-    summary,
-    mainRisk: primary ? `${primary.name}: ${primary.actual} (expected ${primary.expected})` : "Configuration drift",
+    summary: parts.join(" "),
+    mainRisk: fails[0] ? `${fails[0].name}: ${fails[0].actual}` : "Policy violation",
     remediation,
     source: "deterministic",
   };
@@ -64,7 +63,6 @@ export async function explainWithModel(input: {
   score: number;
   checks: RuleResult[];
   intent: TransactionIntent;
-  observed: ObservedConfig;
 }): Promise<Explanation> {
   const fallback = deterministicExplanation(input);
   const key = process.env.XAI_API_KEY;
@@ -79,7 +77,7 @@ export async function explainWithModel(input: {
         {
           role: "system",
           content:
-            "You explain already-determined security decisions for Preflight. You MUST NOT change the decision, score, or any rule status. Return compact JSON only: {summary, mainRisk, remediation}. Two or three sentences max in summary. No markdown.",
+            "You explain already-determined Preflight decisions for AI-agent transactions on X Layer. You MUST NOT change the decision, score, or any rule status. Return compact JSON only: {summary, mainRisk, remediation}. Two or three sentences max. No markdown.",
         },
         {
           role: "user",
@@ -87,15 +85,8 @@ export async function explainWithModel(input: {
             decision: input.decision,
             score: input.score,
             intent: input.intent,
-            configSource: input.observed.source,
-            dvn: `${input.observed.requiredDvnCount}/${input.observed.requiredDvns.length}`,
-            checks: input.checks.map((c) => ({
-              id: c.id,
-              status: c.status,
-              expected: c.expected,
-              actual: c.actual,
-              explanation: c.explanation,
-            })),
+            failedRules: input.checks.filter((c) => c.status === "FAIL"),
+            warnings: input.checks.filter((c) => c.status === "WARN"),
           }),
         },
       ],

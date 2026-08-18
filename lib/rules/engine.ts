@@ -1,366 +1,238 @@
-import { isAddressEqual, zeroAddress } from "viem";
-import { DEFAULT_ASSUMPTIONS, isDeadDvn, shortAddress } from "@/lib/layerzero/networks";
-import type {
-  ExpectedAssumptions,
-  ObservedConfig,
-  RuleResult,
-  RuleStatus,
-  Severity,
-  TransactionIntent,
-} from "@/types";
+import {
+  formatAmount,
+  isUnlimited,
+  labelAddress,
+  normalizeToken,
+} from "@/lib/policy/defaults";
+import { simulateTransaction } from "@/lib/simulation/simulate";
+import type { AgentPolicy, RuleResult, TransactionIntent } from "@/types";
 
-function rule(
-  id: string,
-  name: string,
-  status: RuleStatus,
-  severity: Severity,
-  expected: string,
-  actual: string,
-  explanation: string,
-): RuleResult {
-  return { id, name, status, severity, expected, actual, explanation };
+const MAX_UINT = "MAX_UINT256";
+
+function sameAddr(a: string, b: string): boolean {
+  return a.trim().toLowerCase() === b.trim().toLowerCase();
 }
 
-function sameAddr(a: string | null | undefined, b: string | null | undefined): boolean {
-  if (!a || !b) return false;
-  try {
-    return isAddressEqual(a as `0x${string}`, b as `0x${string}`);
-  } catch {
-    return a.toLowerCase() === b.toLowerCase();
-  }
+function inList(value: string, list: string[]): boolean {
+  const v = value.trim().toLowerCase();
+  return list.some((item) => item.trim().toLowerCase() === v);
 }
 
-export function evaluateSecurityRules(
-  observed: ObservedConfig,
-  expected: ExpectedAssumptions = DEFAULT_ASSUMPTIONS,
-  intent?: TransactionIntent,
-): RuleResult[] {
+export function evaluateTransaction(intent: TransactionIntent, policy: AgentPolicy): RuleResult[] {
   return [
-    dvnConfiguration(observed, expected),
-    dvnThreshold(observed, expected),
-    sendLibrary(observed, expected),
-    receiveLibrary(observed, expected),
-    executor(observed, expected),
-    confirmations(observed, expected),
-    owner(observed, expected),
-    adminDelegate(observed),
-    peerConfiguration(observed, expected, intent),
-    endpointConfiguration(observed, expected),
-    supportedDestination(observed, intent),
-    oftConfiguration(observed, expected, intent),
+    spendLimit(intent, policy),
+    tokenAllowlist(intent, policy),
+    contractAllowlist(intent, policy),
+    recipientAllowlist(intent, policy),
+    unlimitedApproval(intent, policy),
+    slippageLimit(intent, policy),
+    simulateTransaction(intent),
+    gasAnomaly(intent),
   ];
 }
 
-export function dvnConfiguration(observed: ObservedConfig, expected: ExpectedAssumptions): RuleResult {
-  const names = observed.requiredDvns.map((d) => d.name).join(", ") || "none";
-  const dead = observed.requiredDvns.filter((d) => isDeadDvn(d.address));
-  const unknown = observed.requiredDvns.filter((d) => d.name.startsWith("0x") || d.name.includes("…"));
-
-  if (expected.forbidDeadDvn && dead.length > 0) {
-    return rule(
-      "dvn_configuration",
-      "DVN Configuration",
-      "FAIL",
-      "CRITICAL",
-      "Required DVNs must be live, independent verifiers",
-      `${names} (includes Dead DVN)`,
-      "A Dead DVN can never attest. Messages on this pathway will not verify.",
-    );
+export function spendLimit(intent: TransactionIntent, policy: AgentPolicy): RuleResult {
+  if (intent.action === "approve" && isUnlimited(intent.amount)) {
+    return {
+      id: "spend_limit",
+      name: "Spend Limit",
+      status: "FAIL",
+      severity: "CRITICAL",
+      expected: `≤ $${policy.maxTransactionAmount.toLocaleString()}`,
+      actual: MAX_UINT,
+      explanation: "Unlimited approval has no spending ceiling.",
+    };
   }
 
-  if (observed.requiredDvnCount === 0 || observed.requiredDvns.length === 0) {
-    return rule(
-      "dvn_configuration",
-      "DVN Configuration",
-      "FAIL",
-      "CRITICAL",
-      "At least one required DVN pinned on the pathway",
-      "No required DVNs",
-      "The security stack has no required verifiers. Any single compromised optional path can forge messages.",
-    );
-  }
-
-  if (unknown.length > 0) {
-    return rule(
-      "dvn_configuration",
-      "DVN Configuration",
-      "WARN",
-      "MEDIUM",
-      "Known, independent DVN operators",
-      names,
-      "One or more required DVNs are not in the known operator directory.",
-    );
-  }
-
-  return rule(
-    "dvn_configuration",
-    "DVN Configuration",
-    "PASS",
-    "CRITICAL",
-    "Live required DVNs from known operators",
-    names,
-    "Required DVNs are present and do not include a Dead DVN.",
-  );
+  const over = intent.amount > policy.maxTransactionAmount;
+  return {
+    id: "spend_limit",
+    name: "Spend Limit",
+    status: over ? "FAIL" : "PASS",
+    severity: "CRITICAL",
+    expected: `≤ $${policy.maxTransactionAmount.toLocaleString()}`,
+    actual: formatAmount(intent.amount, intent.token),
+    explanation: over
+      ? "Transaction exceeds the agent's configured spending limit."
+      : "Requested amount is within the agent's spending limit.",
+  };
 }
 
-export function dvnThreshold(observed: ObservedConfig, expected: ExpectedAssumptions): RuleResult {
-  const total = Math.max(expected.minRequiredDvns, observed.requiredDvns.length, observed.requiredDvnCount);
-  const actual = `${observed.requiredDvnCount} / ${total}`;
-  const want = `${expected.minRequiredDvns} / ${expected.minRequiredDvns}`;
+export function tokenAllowlist(intent: TransactionIntent, policy: AgentPolicy): RuleResult {
+  const token = normalizeToken(intent.token);
+  const ok = policy.allowedTokens.some((t) => normalizeToken(t) === token);
+  return {
+    id: "token_allowlist",
+    name: "Token Allowlist",
+    status: ok ? "PASS" : "FAIL",
+    severity: "HIGH",
+    expected: policy.allowedTokens.join(", "),
+    actual: token || "—",
+    explanation: ok
+      ? `${token} is on the agent's token allowlist.`
+      : `${token} is not an approved token for this agent.`,
+  };
+}
 
-  if (observed.requiredDvnCount < expected.minRequiredDvns) {
-    return rule(
-      "dvn_threshold",
-      "DVN Threshold",
-      "FAIL",
-      "CRITICAL",
-      want,
-      actual,
-      `Required DVN threshold dropped below the agent's assumed ${want} security stack.`,
-    );
+export function contractAllowlist(intent: TransactionIntent, policy: AgentPolicy): RuleResult {
+  if (intent.action === "transfer") {
+    return {
+      id: "contract_allowlist",
+      name: "Contract Allowlist",
+      status: "PASS",
+      severity: "HIGH",
+      expected: "No protocol call",
+      actual: "Native transfer",
+      explanation: "This is a token transfer, not a protocol interaction.",
+    };
   }
 
-  if (observed.requiredDvnCount === 1) {
-    return rule(
-      "dvn_threshold",
-      "DVN Threshold",
-      "FAIL",
-      "CRITICAL",
-      want,
-      actual,
-      "A 1-of-N required DVN stack means a single verifier compromise forges the pathway.",
-    );
+  const target = intent.action === "approve" ? intent.recipient : intent.contract;
+  const ok = Boolean(target) && inList(target, policy.allowedContracts);
+  return {
+    id: "contract_allowlist",
+    name: "Contract Allowlist",
+    status: ok ? "PASS" : "FAIL",
+    severity: "HIGH",
+    expected: policy.allowedContracts.map(labelAddress).join(", ") || "approved contracts",
+    actual: labelAddress(target),
+    explanation: ok
+      ? `${labelAddress(target)} is an approved contract.`
+      : "The destination contract is not on the approved contract list.",
+  };
+}
+
+export function recipientAllowlist(intent: TransactionIntent, policy: AgentPolicy): RuleResult {
+  if (intent.action !== "transfer") {
+    return {
+      id: "recipient_allowlist",
+      name: "Recipient Allowlist",
+      status: "PASS",
+      severity: "HIGH",
+      expected: "Recipient check applies to transfers",
+      actual: intent.action,
+      explanation: "Recipient allowlist is not the binding control for this action.",
+    };
   }
 
-  return rule(
-    "dvn_threshold",
-    "DVN Threshold",
-    "PASS",
-    "CRITICAL",
-    `≥ ${want}`,
-    actual,
-    "Required DVN threshold meets the agent's security assumption.",
-  );
+  const ok = Boolean(intent.recipient) && inList(intent.recipient, policy.allowedRecipients);
+  return {
+    id: "recipient_allowlist",
+    name: "Recipient Allowlist",
+    status: ok ? "PASS" : "FAIL",
+    severity: "HIGH",
+    expected: policy.allowedRecipients.map(labelAddress).join(", "),
+    actual: labelAddress(intent.recipient),
+    explanation: ok
+      ? `${labelAddress(intent.recipient)} is an approved recipient.`
+      : "The recipient is not approved for this agent.",
+  };
 }
 
-export function sendLibrary(observed: ObservedConfig, expected: ExpectedAssumptions): RuleResult {
-  const ok = sameAddr(observed.sendLibrary, expected.expectedSendLibrary);
-  return rule(
-    "send_library",
-    "Send Library",
-    ok ? "PASS" : "FAIL",
-    "HIGH",
-    shortAddress(expected.expectedSendLibrary) + " (SendUln302)",
-    shortAddress(observed.sendLibrary),
-    ok
-      ? "Send library is the official SendUln302 on X Layer."
-      : "Send library differs from the official SendUln302. Outbound verification semantics may have changed.",
-  );
-}
-
-export function receiveLibrary(observed: ObservedConfig, expected: ExpectedAssumptions): RuleResult {
-  const ok = sameAddr(observed.receiveLibrary, expected.expectedReceiveLibrary);
-  if (!ok) {
-    return rule(
-      "receive_library",
-      "Receive Library",
-      "FAIL",
-      "HIGH",
-      shortAddress(expected.expectedReceiveLibrary) + " (ReceiveUln302)",
-      shortAddress(observed.receiveLibrary),
-      "Receive library is not the official ReceiveUln302. Inbound verification may not match the send side.",
-    );
+export function unlimitedApproval(intent: TransactionIntent, policy: AgentPolicy): RuleResult {
+  if (intent.action !== "approve") {
+    return {
+      id: "unlimited_approval",
+      name: "Approval Risk",
+      status: "PASS",
+      severity: "CRITICAL",
+      expected: "No unlimited approval",
+      actual: "Not an approval",
+      explanation: "This intent does not grant a token allowance.",
+    };
   }
-  if (observed.receiveLibraryIsDefault) {
-    return rule(
-      "receive_library",
-      "Receive Library",
-      "WARN",
-      "LOW",
-      "Pinned ReceiveUln302",
-      `${shortAddress(observed.receiveLibrary)} (default)`,
-      "Library address is ReceiveUln302 but inherited from the mutable default. A default rotation can drift the pathway.",
-    );
+
+  const spenderTrusted = inList(intent.recipient, policy.allowedContracts);
+  if (isUnlimited(intent.amount) && !spenderTrusted) {
+    return {
+      id: "unlimited_approval",
+      name: "Approval Risk",
+      status: "FAIL",
+      severity: "CRITICAL",
+      expected: "Finite allowance to a trusted spender",
+      actual: `approve(${labelAddress(intent.recipient)}, ${MAX_UINT})`,
+      explanation:
+        "Unlimited token approval to an unapproved contract creates significant asset-loss risk.",
+    };
   }
-  return rule(
-    "receive_library",
-    "Receive Library",
-    "PASS",
-    "HIGH",
-    "Pinned ReceiveUln302",
-    shortAddress(observed.receiveLibrary),
-    "Receive library is the official ReceiveUln302.",
-  );
-}
 
-export function executor(observed: ObservedConfig, expected: ExpectedAssumptions): RuleResult {
-  const ok = sameAddr(observed.executor, expected.expectedExecutor);
-  if (!observed.executor || sameAddr(observed.executor, zeroAddress)) {
-    return rule(
-      "executor",
-      "Executor",
-      "WARN",
-      "MEDIUM",
-      shortAddress(expected.expectedExecutor) + " (LZ Executor)",
-      "unset",
-      "No executor is configured. Delivery is permissionless but automatic execution is not guaranteed.",
-    );
+  if (isUnlimited(intent.amount) && spenderTrusted) {
+    return {
+      id: "unlimited_approval",
+      name: "Approval Risk",
+      status: "WARN",
+      severity: "MEDIUM",
+      expected: "Finite allowance",
+      actual: `approve(${labelAddress(intent.recipient)}, ${MAX_UINT})`,
+      explanation: "Spender is trusted, but unlimited allowance is still broader than necessary.",
+    };
   }
-  return rule(
-    "executor",
-    "Executor",
-    ok ? "PASS" : "WARN",
-    "MEDIUM",
-    shortAddress(expected.expectedExecutor) + " (LZ Executor)",
-    shortAddress(observed.executor),
-    ok
-      ? "Executor is the official LayerZero executor on X Layer."
-      : "Executor is not the official LayerZero executor. Execution still does not change verification.",
-  );
+
+  return {
+    id: "unlimited_approval",
+    name: "Approval Risk",
+    status: "PASS",
+    severity: "CRITICAL",
+    expected: "Finite allowance",
+    actual: `approve(${labelAddress(intent.recipient)}, ${formatAmount(intent.amount, intent.token)})`,
+    explanation: "Allowance is finite.",
+  };
 }
 
-export function confirmations(observed: ObservedConfig, expected: ExpectedAssumptions): RuleResult {
-  const ok = observed.confirmations >= expected.minConfirmations;
-  return rule(
-    "confirmations",
-    "Confirmations",
-    ok ? "PASS" : "FAIL",
-    "HIGH",
-    `≥ ${expected.minConfirmations} source blocks`,
-    `${observed.confirmations}`,
-    ok
-      ? "Required source confirmations meet the agent's finality assumption."
-      : "Required confirmations are below the agent's finality assumption. Reorg risk is higher.",
-  );
-}
-
-export function owner(observed: ObservedConfig, expected: ExpectedAssumptions): RuleResult {
-  if (!expected.ownerMustBeSet) {
-    return rule("owner", "Owner", "PASS", "HIGH", "Set", observed.owner ?? "—", "Owner check disabled.");
+export function slippageLimit(intent: TransactionIntent, policy: AgentPolicy): RuleResult {
+  if (intent.action !== "swap") {
+    return {
+      id: "slippage_limit",
+      name: "Slippage Limit",
+      status: "PASS",
+      severity: "MEDIUM",
+      expected: `≤ ${policy.maxSlippageBps} bps`,
+      actual: "n/a",
+      explanation: "Slippage applies to swaps only.",
+    };
   }
-  if (!observed.owner || sameAddr(observed.owner, zeroAddress)) {
-    return rule(
-      "owner",
-      "Owner",
-      "FAIL",
-      "HIGH",
-      "Non-zero owner",
-      "unset",
-      "OFT owner is unset. Configuration authority is unclear.",
-    );
+
+  const over = intent.slippageBps > policy.maxSlippageBps;
+  return {
+    id: "slippage_limit",
+    name: "Slippage Limit",
+    status: over ? "FAIL" : "PASS",
+    severity: "HIGH",
+    expected: `≤ ${policy.maxSlippageBps} bps`,
+    actual: `${intent.slippageBps} bps`,
+    explanation: over
+      ? "Requested slippage exceeds the agent's configured maximum."
+      : "Slippage is within the agent's limit.",
+  };
+}
+
+export function gasAnomaly(intent: TransactionIntent): RuleResult {
+  const elevated = intent.value > 0 && intent.action !== "transfer" && intent.action !== "swap";
+  if (elevated) {
+    return {
+      id: "gas_anomaly",
+      name: "Value / Gas",
+      status: "WARN",
+      severity: "MEDIUM",
+      expected: "No unexpected native value",
+      actual: `${intent.value} OKB`,
+      explanation: "This call attaches native value in addition to the token action.",
+    };
   }
-  return rule(
-    "owner",
-    "Owner",
-    "PASS",
-    "HIGH",
-    "Non-zero owner",
-    shortAddress(observed.owner),
-    "OFT owner is set and readable on X Layer.",
-  );
+
+  return {
+    id: "gas_anomaly",
+    name: "Value / Gas",
+    status: "PASS",
+    severity: "LOW",
+    expected: "Ordinary native value",
+    actual: intent.value ? `${intent.value} OKB` : "0 OKB",
+    explanation: "No native-value anomaly detected.",
+  };
 }
 
-export function adminDelegate(observed: ObservedConfig): RuleResult {
-  if (!observed.delegate || sameAddr(observed.delegate, zeroAddress)) {
-    return rule(
-      "admin_delegate",
-      "Admin / Delegate",
-      "WARN",
-      "LOW",
-      "Delegate set on the endpoint",
-      "unset",
-      "No endpoint delegate is recorded. Only the owner can change pathway config.",
-    );
-  }
-  return rule(
-    "admin_delegate",
-    "Admin / Delegate",
-    "PASS",
-    "LOW",
-    "Delegate set",
-    shortAddress(observed.delegate),
-    "Endpoint delegate is set.",
-  );
+export function decodeUnavailable(intent: TransactionIntent): boolean {
+  return intent.action === "contract" && !intent.decoded && !intent.functionName;
 }
 
-export function peerConfiguration(
-  observed: ObservedConfig,
-  expected: ExpectedAssumptions,
-  intent?: TransactionIntent,
-): RuleResult {
-  const dest = intent?.destinationChain ?? "destination";
-  if (!expected.destinationMustBePeer) {
-    return rule("peer_configuration", "Peer Configuration", "PASS", "HIGH", "Peer optional", "skipped", "");
-  }
-  if (!observed.peerConfigured) {
-    return rule(
-      "peer_configuration",
-      "Peer Configuration",
-      "FAIL",
-      "HIGH",
-      `Peer set for ${dest} (EID ${observed.destinationEid})`,
-      "not configured",
-      `No peer is configured for ${dest}. The OFT cannot send to that destination.`,
-    );
-  }
-  return rule(
-    "peer_configuration",
-    "Peer Configuration",
-    "PASS",
-    "HIGH",
-    `Peer set for ${dest}`,
-    observed.peer ? shortAddress(observed.peer) : "configured",
-    `Destination peer for ${dest} is configured.`,
-  );
-}
-
-export function endpointConfiguration(observed: ObservedConfig, expected: ExpectedAssumptions): RuleResult {
-  const ok = sameAddr(observed.endpoint, expected.expectedEndpoint);
-  return rule(
-    "endpoint_configuration",
-    "Endpoint Configuration",
-    ok ? "PASS" : "FAIL",
-    "CRITICAL",
-    `${shortAddress(expected.expectedEndpoint)} · X Layer EID ${observed.sourceEid}`,
-    shortAddress(observed.endpoint),
-    ok
-      ? "OApp is wired to the official LayerZero Endpoint V2 on X Layer."
-      : "Endpoint address is not the official X Layer Endpoint V2.",
-  );
-}
-
-export function supportedDestination(observed: ObservedConfig, intent?: TransactionIntent): RuleResult {
-  const dest = intent?.destinationChain ?? "unknown";
-  const supported = observed.destinationEid > 0;
-  return rule(
-    "supported_destination",
-    "Supported Destination",
-    supported ? "PASS" : "FAIL",
-    "HIGH",
-    "Known LayerZero destination EID",
-    supported ? `${dest} · EID ${observed.destinationEid}` : dest,
-    supported
-      ? `${dest} is a configured LayerZero destination.`
-      : "Destination is not a known LayerZero endpoint in this deployment.",
-  );
-}
-
-export function oftConfiguration(
-  observed: ObservedConfig,
-  expected: ExpectedAssumptions,
-  intent?: TransactionIntent,
-): RuleResult {
-  const token = (intent?.token ?? observed.tokenSymbol).toUpperCase();
-  const ok = sameAddr(observed.tokenAddress, expected.expectedTokenAddress);
-  return rule(
-    "oft_configuration",
-    "OFT Configuration",
-    ok ? "PASS" : "WARN",
-    "MEDIUM",
-    `USDT0 @ ${shortAddress(expected.expectedTokenAddress)}`,
-    `${token} @ ${shortAddress(observed.tokenAddress)}`,
-    ok
-      ? "Asset resolves to the canonical USDT0 OFT on X Layer."
-      : "Asset address does not match the canonical USDT0 OFT on X Layer.",
-  );
-}
+export { sameAddr };

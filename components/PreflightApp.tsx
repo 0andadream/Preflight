@@ -1,10 +1,25 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import type { PreflightResult, RuleResult } from "@/types";
 import { Logo } from "@/components/Logo";
+import {
+  OKX_DEX_ROUTER,
+  TREASURY_VAULT,
+  UNKNOWN_ADDRESS,
+  formatAmount,
+  labelAddress,
+} from "@/lib/policy/defaults";
+import type { PreflightResult, RuleResult, TxAction } from "@/types";
 
-const STEPS = ["Endpoint", "DVNs", "Libraries", "Executor", "Owner", "Policy"] as const;
+const STEPS = [
+  "Agent policy",
+  "Token",
+  "Recipient",
+  "Contract",
+  "Approval risk",
+  "Slippage",
+  "Simulation",
+] as const;
 
 type Phase = "idle" | "reading" | "done";
 
@@ -22,45 +37,60 @@ function statusTone(status: RuleResult["status"]) {
 
 export function PreflightApp() {
   const [agent, setAgent] = useState("Demo Treasury Agent");
-  const [token, setToken] = useState("USDT0");
+  const [action, setAction] = useState<TxAction>("transfer");
+  const [token, setToken] = useState("USDT");
   const [amount, setAmount] = useState(500);
-  const [destination, setDestination] = useState("Arbitrum");
+  const [recipient, setRecipient] = useState(TREASURY_VAULT);
   const [phase, setPhase] = useState<Phase>("idle");
   const [step, setStep] = useState(0);
   const [result, setResult] = useState<PreflightResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  async function run(opts: { simulateDrift?: boolean; nextAmount?: number } = {}) {
-    const next = opts.nextAmount ?? amount;
-    if (opts.nextAmount != null) setAmount(opts.nextAmount);
+  async function run(opts: { scenario?: "safe" | "over-limit" | "unlimited-approval" } = {}) {
+    if (opts.scenario === "over-limit") {
+      setAction("transfer");
+      setToken("USDT");
+      setAmount(5000);
+      setRecipient(UNKNOWN_ADDRESS);
+    }
+    if (opts.scenario === "unlimited-approval") {
+      setAction("approve");
+      setToken("USDT");
+      setAmount(-1);
+      setRecipient(UNKNOWN_ADDRESS);
+    }
+
     setError(null);
     setBusy(true);
     setPhase("reading");
     setStep(0);
     setResult(null);
 
-    const timers = STEPS.map((_, i) =>
-      window.setTimeout(() => setStep(i + 1), 280 + i * 220),
-    );
+    const timers = STEPS.map((_, i) => window.setTimeout(() => setStep(i + 1), 240 + i * 180));
+
+    const body =
+      opts.scenario === "over-limit" || opts.scenario === "unlimited-approval"
+        ? { agent, scenario: opts.scenario }
+        : {
+            agent,
+            action,
+            token,
+            amount,
+            recipient,
+            contract: action === "swap" ? OKX_DEX_ROUTER : action === "approve" ? recipient : "",
+          };
 
     try {
       const res = await fetch("/api/preflight", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          agent,
-          token,
-          amount: next,
-          sourceChain: "X Layer",
-          destinationChain: destination,
-          simulateDrift: Boolean(opts.simulateDrift),
-        }),
+        body: JSON.stringify(body),
       });
-      const body = (await res.json()) as PreflightResult & { error?: string };
-      if (!res.ok) throw new Error(body.error || "preflight failed");
-      await new Promise((r) => setTimeout(r, 1500));
-      setResult(body);
+      const data = (await res.json()) as PreflightResult & { error?: string };
+      if (!res.ok) throw new Error(data.error || "preflight failed");
+      await new Promise((r) => setTimeout(r, 1400));
+      setResult(data);
       setPhase("done");
     } catch (err) {
       setError(err instanceof Error ? err.message : "preflight failed");
@@ -74,37 +104,61 @@ export function PreflightApp() {
 
   const style = result ? DECISION_STYLE[result.decision] : null;
   const fails = useMemo(() => result?.checks.filter((c) => c.status === "FAIL") ?? [], [result]);
+  const targetLabel = labelAddress(recipient);
 
   return (
     <div className="mx-auto w-full max-w-6xl px-5 py-10">
       <Logo className="h-10 w-10" />
-      <p className="mono-label mt-5 text-lime">X Layer · LayerZero OFT · deterministic</p>
+      <p className="mono-label mt-5 text-lime">X Layer · Chain 196 · deterministic</p>
       <h1 className="mt-3 text-3xl font-medium tracking-tight">Run a preflight</h1>
       <p className="mt-2 max-w-2xl text-sm leading-relaxed text-paper-300">
-        An agent submits an intended transfer. Preflight reads the current X Layer configuration,
-        evaluates deterministic rules, then attests the decision. The model only explains.
+        An agent submits an intended X Layer transaction. Preflight evaluates policy, decides ALLOW /
+        WARN / BLOCK, then attests the decision. The model only explains.
       </p>
 
       <section className="panel mt-8 p-5 sm:p-6">
         <div className="mono-label">Transaction intent</div>
         <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
           <Field label="Agent" value={agent} onChange={setAgent} />
+          <label className="block">
+            <span className="mono-label">Action</span>
+            <select
+              value={action}
+              onChange={(e) => setAction(e.target.value as TxAction)}
+              className="mt-1 w-full border-b border-white/10 bg-transparent py-2 font-mono text-lg outline-none"
+            >
+              <option value="transfer">Transfer</option>
+              <option value="approve">Approve</option>
+              <option value="swap">Swap</option>
+              <option value="contract">Contract</option>
+            </select>
+          </label>
           <Field label="Asset" value={token} onChange={setToken} />
           <label className="block">
             <span className="mono-label">Amount</span>
             <input
               type="number"
-              min={0}
+              min={-1}
               value={amount}
               onChange={(e) => setAmount(Number(e.target.value))}
               className="mt-1 w-full border-b border-white/10 bg-transparent py-2 font-mono text-lg outline-none"
             />
           </label>
           <div>
-            <span className="mono-label">Source</span>
+            <span className="mono-label">Chain</span>
             <div className="mt-1 border-b border-white/10 py-2 font-mono text-lg">X Layer</div>
           </div>
-          <Field label="Destination" value={destination} onChange={setDestination} />
+        </div>
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          <Field
+            label={action === "approve" ? "Spender" : action === "swap" ? "Protocol" : "Recipient"}
+            value={recipient}
+            onChange={setRecipient}
+          />
+          <div>
+            <span className="mono-label">Resolved</span>
+            <div className="mt-1 border-b border-white/10 py-2 font-mono text-lg">{targetLabel}</div>
+          </div>
         </div>
 
         <div className="mt-6 flex flex-wrap items-center gap-3">
@@ -115,20 +169,28 @@ export function PreflightApp() {
             type="button"
             className="btn-block h-11 px-6"
             disabled={busy}
-            onClick={() => run({ simulateDrift: true, nextAmount: 5000 })}
+            onClick={() => run({ scenario: "over-limit" })}
           >
-            Simulate configuration drift
+            Simulate over-limit
+          </button>
+          <button
+            type="button"
+            className="btn-block h-11 px-6"
+            disabled={busy}
+            onClick={() => run({ scenario: "unlimited-approval" })}
+          >
+            Simulate unlimited approval
           </button>
           <span className="font-mono text-[11px] text-paper-500">
-            Policy: max $1,000 · dest Arbitrum · token USDT0
+            Policy: max $1,000 · USDT / USDC / OKB · Treasury Vault
           </span>
         </div>
       </section>
 
       {phase !== "idle" && (
         <section className="panel mt-4 p-5">
-          <div className="mono-label">Reading configuration</div>
-          <ul className="mt-3 grid gap-2 sm:grid-cols-3 lg:grid-cols-6">
+          <div className="mono-label">Analyzing transaction</div>
+          <ul className="mt-3 grid gap-2 sm:grid-cols-3 lg:grid-cols-7">
             {STEPS.map((name, i) => {
               const done = step > i;
               return (
@@ -146,7 +208,9 @@ export function PreflightApp() {
 
       {result && style && (
         <div className="mt-6 grid gap-4 lg:grid-cols-[320px_1fr]">
-          <aside className={`panel scanline flex flex-col items-center justify-center px-6 py-10 ${style.bg} ${style.border}`}>
+          <aside
+            className={`panel scanline flex flex-col items-center justify-center px-6 py-10 ${style.bg} ${style.border}`}
+          >
             <div className="font-mono text-[11px] uppercase tracking-[0.2em] text-paper-500">
               Safety score
             </div>
@@ -160,10 +224,21 @@ export function PreflightApp() {
             <div className={`mt-8 font-mono text-3xl ${style.color}`}>
               {style.mark} {result.decision}
             </div>
-            <SourceBadge source={result.observed.source} />
+            <SourceBadge source={result.source} />
           </aside>
 
           <div className="space-y-4">
+            <section className="panel p-5">
+              <div className="mono-label">Intent</div>
+              <p className="mt-2 font-mono text-sm text-paper-300">
+                {result.intent.action.toUpperCase()} · {formatAmount(result.intent.amount, result.intent.token)}{" "}
+                · X Layer → {labelAddress(result.intent.recipient || result.intent.contract)}
+              </p>
+              {!result.intent.decoded && (
+                <p className="mt-2 font-mono text-[11px] text-warn">Unable to decode transaction</p>
+              )}
+            </section>
+
             <section className="panel p-5">
               <div className="mono-label">Checks</div>
               <ul className="mt-3 divide-y divide-white/[0.05]">
@@ -234,17 +309,21 @@ export function PreflightApp() {
             <section className="panel p-5">
               <div className="mono-label">Onchain attestation</div>
               {result.attestation.written ? (
-                <div className="mt-3 text-sm text-allow">✓ Attested on X Layer</div>
+                <div className="mt-3 text-sm text-allow">✓ Recorded on X Layer</div>
               ) : (
                 <div className="mt-3 text-sm text-paper-300">
-                  Policy Decision Record hashed. Onchain write pending
-                  {result.attestation.reason ? ` — ${result.attestation.reason}` : "."}
+                  Agent security decision hashed.
+                  {result.attestation.reason ? ` ${result.attestation.reason}` : ""}
                 </div>
               )}
               <dl className="mt-3 space-y-1 font-mono text-[11px] text-paper-300">
                 <div className="flex flex-wrap gap-2">
                   <dt className="text-paper-500">Policy hash</dt>
                   <dd className="break-all">{result.policyHash}</dd>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <dt className="text-paper-500">Timestamp</dt>
+                  <dd>{result.record.timestamp}</dd>
                 </div>
                 {result.attestation.txHash && (
                   <div className="flex flex-wrap gap-2">
@@ -291,9 +370,8 @@ function Field({
   );
 }
 
-function SourceBadge({ source }: { source: PreflightResult["observed"]["source"] }) {
-  const label =
-    source === "onchain" ? "Read from X Layer" : source === "simulation" ? "SIMULATION" : "Demo snapshot";
+function SourceBadge({ source }: { source: PreflightResult["source"] }) {
+  const label = source === "simulation" ? "SIMULATION MODE" : "X Layer evaluation";
   const tone = source === "simulation" ? "text-warn border-warn/40" : "text-paper-500 border-white/10";
   return (
     <div className={`mt-6 border px-2 py-1 font-mono text-[10px] uppercase tracking-[0.16em] ${tone}`}>

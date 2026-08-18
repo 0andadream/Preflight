@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 /// @title PreflightAttestation
-/// @notice Minimal X Layer record of a deterministic Policy Decision Record hash.
+/// @notice Minimal X Layer record of an Agent Security Decision.
 ///         AI never writes this. Only the already-decided hash, decision, and score.
 contract PreflightAttestation {
     uint8 public constant DECISION_ALLOW = 0;

@@ -2,96 +2,48 @@
 
 **Security checks before AI agents move money.**
 
-Security middleware between autonomous AI agents and onchain value. An agent does not blindly execute a cross-chain OFT transfer. It asks Preflight first.
-
-Preflight reads the current LayerZero configuration on **X Layer**, runs a deterministic rule engine, applies a simple agent policy, returns **ALLOW / WARN / BLOCK**, hashes a Policy Decision Record, and can attest that hash on X Layer.
+An execution checkpoint for AI agents on **X Layer**. An agent does not blindly send a transaction. It asks Preflight first.
 
 ```
-AI Agent → Preflight → ALLOW / BLOCK → Attest on X Layer
+AI AGENT → INTENT → CHECK → DECIDE → EXPLAIN → ATTEST → EXECUTE
 ```
 
 AI explains. Deterministic code decides.
 
 ---
 
-## Demo (60–90 seconds)
+## Demo
 
 1. Open `/preflight`.
-2. Demo Treasury Agent prepares **500 USDT0** from **X Layer → Arbitrum**.
-3. **Run Preflight**. Checks pass. Decision: **ALLOW**. Policy hash is shown.
-4. Click **Simulate configuration drift**.
-   - DVN threshold `2 / 2` → `1 / 2` (labeled **SIMULATION**)
-   - Amount becomes `$5,000` against a `$1,000` policy
-5. Decision: **BLOCK**. The model explains why.
-6. End: *Agents can move money autonomously. Preflight makes sure they don't move it blindly.*
+2. Demo Treasury Agent transfers **$500 USDT** to the **Treasury Vault** on X Layer.
+3. **Run Preflight** → **ALLOW**.
+4. **Simulate over-limit** → $5,000 to an unknown recipient → **BLOCK**.
+5. **Simulate unlimited approval** → `approve(unknown, MAX_UINT256)` → **BLOCK**.
 
 ---
 
-## What this is / is not
+## What this is
 
-This is a security primitive for agent-initiated OFT transfers on X Layer.
+A transaction-security firewall for autonomous agents on X Layer (chain ID 196).
 
-It is not a portfolio tracker, a multi-chain dashboard, a wallet, or a generic AI chatbot.
-
-Roadmap only (not built): Agent SDK, MCP, protocol risk modules, behavioral ML, x402, wallet integrations, multi-chain fleet monitoring.
+It is not a portfolio tracker, a bridge monitor, or a generic AI chatbot.
 
 ---
 
-## Architecture
+## Rules
 
-```
-/app            Next.js App Router — UI + POST /api/preflight
-/components     Security-focused UI
-/lib
-  /rules        Deterministic LayerZero / OFT checks
-  /policy       max amount · allowed dest · allowed token
-  /scoring      0–100 score + ALLOW / WARN / BLOCK
-  /attestation  PDR keccak256 + X Layer write
-  /ai           SpaceXAI (Grok) explains only
-  /layerzero    X Layer endpoint / DVN / library reader
-/contracts      PreflightAttestation.sol (Foundry)
-/types          Shared types
-```
+Deterministic only:
 
-`POST /api/preflight`
+1. Spend limit
+2. Token allowlist
+3. Contract allowlist
+4. Recipient allowlist
+5. Unlimited approval
+6. Slippage limit
+7. Simulation / revert
+8. Value / gas anomaly
 
-```json
-{
-  "agent": "Demo Treasury Agent",
-  "token": "USDT0",
-  "amount": 500,
-  "sourceChain": "X Layer",
-  "destinationChain": "arbitrum"
-}
-```
-
-```json
-{
-  "decision": "ALLOW",
-  "score": 97,
-  "policyHash": "0x…",
-  "checks": [],
-  "explanation": "…",
-  "remediation": "…"
-}
-```
-
-The same route accepts `"simulateDrift": true` for the labeled attack demo.
-
----
-
-## Networks
-
-| | |
-|---|---|
-| Primary | X Layer mainnet |
-| Chain ID | 196 |
-| LayerZero EID | 30274 |
-| EndpointV2 | `0x1a44076050125825900e736c501f859c50fE728c` |
-| USDT0 OFT | `0x779Ded0c9e1022225f8E0630b35a9b54bE713736` |
-| Attestation | X Layer testnet (1952) |
-
-Configuration is modular. The product is not a generic multi-chain dashboard.
+The model never sets `decision`, `score`, or rule status.
 
 ---
 
@@ -99,41 +51,38 @@ Configuration is modular. The product is not a generic multi-chain dashboard.
 
 ```bash
 pnpm install
-cp .env.example .env.local   # optional XAI_API_KEY
-pnpm dev                     # http://localhost:3000
+pnpm dev
 pnpm test
 ```
 
-Contracts:
+Attestation on X Layer testnet is unchanged:
 
 ```bash
 cd contracts
-forge install foundry-rs/forge-std --no-commit
 forge test -vv
-
-# X Layer testnet
 export PRIVATE_KEY=0x…
 forge script script/Deploy.s.sol --rpc-url https://testrpc.xlayer.tech/terigon --broadcast --legacy
 ```
 
-Then set in `.env.local`:
-
-```
-NEXT_PUBLIC_ATTESTATION_ADDRESS=0x…
-ATTESTER_PRIVATE_KEY=0x…
-XAI_API_KEY=                 # https://console.x.ai — explain only
-```
-
-Without those keys the engine still decides, hashes the record, and falls back to a deterministic explanation. It will not invent a transaction hash.
+Then set `NEXT_PUBLIC_ATTESTATION_ADDRESS` and `ATTESTER_PRIVATE_KEY`.
 
 ---
 
-## Security principle
+## Agent API
 
-1. Rules are pure functions of observed config + policy.
-2. Score and decision are derived only from those rule results.
-3. The LLM receives the already-determined result and returns prose.
-4. The LLM cannot change score, decision, or rule status.
+`POST /api/preflight`
+
+```json
+{
+  "agent": "Demo Treasury Agent",
+  "action": "transfer",
+  "token": "USDT",
+  "amount": 500,
+  "recipient": "0x1111111111111111111111111111111111111111"
+}
+```
+
+Scenarios: `"over-limit"` · `"unlimited-approval"`.
 
 ---
 

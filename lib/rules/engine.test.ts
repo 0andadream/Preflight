@@ -1,60 +1,67 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { applyDriftSimulation, demoSafeConfig } from "@/lib/demo/snapshot";
-import { evaluatePolicy, policyForAgent } from "@/lib/policy/evaluate";
-import { evaluateSecurityRules } from "@/lib/rules/engine";
-import { computeScore, decide } from "@/lib/scoring/score";
-import { buildRecord, hashRecord } from "@/lib/attestation/pdr";
 import { deterministicExplanation } from "@/lib/ai/explain";
-import type { TransactionIntent } from "@/types";
+import { buildRecord, hashRecord } from "@/lib/attestation/pdr";
+import { intentFromRequest } from "@/lib/demo/scenarios";
+import { TREASURY_VAULT, UNKNOWN_ADDRESS, policyForAgent } from "@/lib/policy/defaults";
+import { evaluateTransaction } from "@/lib/rules/engine";
+import { computeScore, decide } from "@/lib/scoring/score";
 
-const safeIntent: TransactionIntent = {
-  agent: "Demo Treasury Agent",
-  token: "USDT0",
-  amount: 500,
-  sourceChain: "X Layer",
-  destinationChain: "Arbitrum",
-};
-
-const blockIntent: TransactionIntent = { ...safeIntent, amount: 5000 };
-
-function run(intent: TransactionIntent, drift: boolean) {
-  const observed = drift
-    ? applyDriftSimulation(demoSafeConfig(intent, 30110))
-    : demoSafeConfig(intent, 30110);
-  const checks = [
-    ...evaluateSecurityRules(observed, undefined, intent),
-    ...evaluatePolicy(policyForAgent(intent.agent), intent),
-  ];
-  return { observed, checks, decision: decide(checks), score: computeScore(checks).total };
+function run(req: Parameters<typeof intentFromRequest>[0]) {
+  const intent = intentFromRequest(req);
+  const policy = policyForAgent(intent.agent);
+  const checks = evaluateTransaction(intent, policy);
+  return { intent, policy, checks, decision: decide(checks), score: computeScore(checks).total };
 }
 
-describe("deterministic preflight engine", () => {
-  it("ALLOWs a $500 USDT0 transfer with a 2/2 stack", () => {
-    const { decision, score, checks } = run(safeIntent, false);
+describe("transaction security engine", () => {
+  it("ALLOWs a $500 USDT transfer to an approved recipient", () => {
+    const { decision, score, checks } = run({ scenario: "safe", amount: 500, token: "USDT" });
     assert.equal(decision, "ALLOW");
     assert.ok(score >= 90, `score ${score}`);
     assert.ok(checks.every((c) => c.status !== "FAIL"));
-    const dvn = checks.find((c) => c.id === "dvn_threshold");
-    assert.equal(dvn?.status, "PASS");
-    assert.match(dvn?.actual ?? "", /2/);
   });
 
-  it("BLOCKs configuration drift 2/2 → 1/2 plus a policy breach", () => {
-    const { decision, score, checks, observed } = run(blockIntent, true);
-    assert.equal(observed.source, "simulation");
-    assert.equal(observed.requiredDvnCount, 1);
+  it("BLOCKs a $5,000 transfer when the limit is $1,000", () => {
+    const { decision, checks } = run({ scenario: "over-limit" });
     assert.equal(decision, "BLOCK");
-    assert.ok(score < 50, `score ${score}`);
-    const dvn = checks.find((c) => c.id === "dvn_threshold");
-    const policy = checks.find((c) => c.id === "agent_policy_amount");
-    assert.equal(dvn?.status, "FAIL");
-    assert.equal(policy?.status, "FAIL");
+    assert.equal(checks.find((c) => c.id === "spend_limit")?.status, "FAIL");
+    assert.equal(checks.find((c) => c.id === "recipient_allowlist")?.status, "FAIL");
+  });
+
+  it("BLOCKs unlimited approval to an unknown contract", () => {
+    const { decision, checks } = run({ scenario: "unlimited-approval" });
+    assert.equal(decision, "BLOCK");
+    const approval = checks.find((c) => c.id === "unlimited_approval");
+    assert.equal(approval?.status, "FAIL");
+    assert.equal(approval?.severity, "CRITICAL");
+  });
+
+  it("ALLOWs an approved token to an approved recipient at an acceptable amount", () => {
+    const { decision } = run({
+      action: "transfer",
+      token: "USDC",
+      amount: 250,
+      recipient: TREASURY_VAULT,
+    });
+    assert.equal(decision, "ALLOW");
+  });
+
+  it("BLOCKs an otherwise valid transfer to an unknown recipient", () => {
+    const { decision, checks } = run({
+      action: "transfer",
+      token: "USDT",
+      amount: 200,
+      recipient: UNKNOWN_ADDRESS,
+    });
+    assert.equal(decision, "BLOCK");
+    assert.equal(checks.find((c) => c.id === "recipient_allowlist")?.status, "FAIL");
+    assert.equal(checks.find((c) => c.id === "spend_limit")?.status, "PASS");
   });
 
   it("reproduces the same decision from the same inputs", () => {
-    const a = run(blockIntent, true);
-    const b = run(blockIntent, true);
+    const a = run({ scenario: "over-limit" });
+    const b = run({ scenario: "over-limit" });
     assert.equal(a.decision, b.decision);
     assert.equal(a.score, b.score);
     assert.deepEqual(
@@ -64,16 +71,8 @@ describe("deterministic preflight engine", () => {
   });
 
   it("hashes a Policy Decision Record deterministically", () => {
-    const { checks, decision, score } = run(safeIntent, false);
-    const rec = {
-      timestamp: "2026-08-18T00:00:00.000Z",
-      intent: safeIntent,
-      sourceChainId: 196,
-      checks,
-      policy: policyForAgent(safeIntent.agent),
-      score,
-      decision,
-    };
+    const { intent, policy, checks, decision, score } = run({ amount: 500 });
+    const rec = { timestamp: "2026-08-18T00:00:00.000Z", intent, checks, policy, score, decision };
     const hashA = hashRecord(buildRecord(rec));
     const hashB = hashRecord(buildRecord(rec));
     assert.equal(hashA, hashB);
@@ -81,24 +80,9 @@ describe("deterministic preflight engine", () => {
   });
 
   it("never lets the explanation rewrite the decision", () => {
-    const { checks, decision, score, observed } = run(blockIntent, true);
-    const explained = deterministicExplanation({
-      decision,
-      score,
-      checks,
-      intent: blockIntent,
-      observed,
-    });
+    const { checks, decision, score, intent } = run({ scenario: "unlimited-approval" });
+    const explained = deterministicExplanation({ decision, score, checks, intent });
     assert.equal(decision, "BLOCK");
-    assert.match(explained.summary.toLowerCase(), /dvn|refused|exceed/);
-    assert.match(explained.remediation.toLowerCase(), /do not execute|restore/);
-  });
-
-  it("fails an unlisted destination", () => {
-    const intent = { ...safeIntent, destinationChain: "ethereum" };
-    const { checks, decision } = run(intent, false);
-    const dest = checks.find((c) => c.id === "agent_policy_destination");
-    assert.equal(dest?.status, "FAIL");
-    assert.equal(decision, "BLOCK");
+    assert.match(explained.summary.toLowerCase(), /unlimited|approval|refused|exceed/);
   });
 });

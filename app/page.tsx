@@ -6,7 +6,6 @@ import { Logo } from "@/components/Logo";
 const ROADMAP = [
   "Agent SDK",
   "MCP interface",
-  "Protocol risk modules",
   "Behavioral anomaly detection",
   "x402 paid checks",
   "Wallet integrations",
@@ -19,17 +18,23 @@ export default function HomePage() {
       <Header />
       <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col px-5 pb-20 pt-14">
         <Logo className="h-16 w-16 sm:h-20 sm:w-20" />
-        <p className="mono-label mt-6 text-lime">Security middleware · X Layer</p>
+        <p className="mono-label mt-6 text-lime">Execution checkpoint · X Layer</p>
         <h1 className="mt-4 max-w-3xl text-4xl font-medium tracking-tight sm:text-6xl">
           PREflight
         </h1>
-        <p className="mt-4 max-w-xl text-lg text-paper">
-          Security checks before AI agents move money.
+        <p className="mt-4 max-w-2xl text-lg uppercase tracking-tight text-paper">
+          Security checks
+          <br />
+          before AI agents
+          <br />
+          move money.
+        </p>
+        <p className="mt-4 max-w-2xl text-sm leading-relaxed text-paper-300">
+          Deterministic transaction security for autonomous agents on X Layer.
         </p>
         <p className="mt-3 max-w-2xl text-sm leading-relaxed text-paper-300">
-          Deterministic cross-chain security verification for autonomous agents on X Layer.
-          Preflight verifies whether an intended OFT transfer still satisfies its security
-          assumptions before execution.
+          PREflight evaluates what an AI agent is about to execute, enforces its transaction policy,
+          explains the risk, and creates a verifiable security receipt on X Layer.
         </p>
 
         <div className="mt-8 flex flex-wrap gap-3">
@@ -49,8 +54,8 @@ export default function HomePage() {
           {[
             {
               k: "Check",
-              t: "Read live LayerZero config",
-              d: "DVNs, libraries, executor, owner, peers, and OFT settings on X Layer.",
+              t: "Read the intended transaction",
+              d: "Spend limit, token, recipient, contract, approval risk, slippage, and simulation on X Layer.",
             },
             {
               k: "Decide",
@@ -59,8 +64,8 @@ export default function HomePage() {
             },
             {
               k: "Attest",
-              t: "Policy Decision Record",
-              d: "keccak256 of the record, optionally written to X Layer as an attestation.",
+              t: "Agent security decision",
+              d: "keccak256 of the Policy Decision Record, optionally written to X Layer.",
             },
           ].map((card) => (
             <article key={card.k} className="panel p-5">

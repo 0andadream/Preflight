@@ -1,8 +1,9 @@
 export type Severity = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
 export type RuleStatus = "PASS" | "WARN" | "FAIL";
 export type Decision = "ALLOW" | "WARN" | "BLOCK";
-export type ConfigSource = "onchain" | "demo-snapshot" | "simulation";
 export type RiskLabel = "SAFE" | "ELEVATED" | "HIGH RISK";
+export type TxAction = "transfer" | "approve" | "swap" | "contract";
+export type EvalSource = "evaluated" | "simulation";
 
 export type RuleResult = {
   id: string;
@@ -15,60 +16,26 @@ export type RuleResult = {
 };
 
 export type AgentPolicy = {
-  maxTransferAmount: number;
-  allowedDestinations: string[];
+  maxTransactionAmount: number;
   allowedTokens: string[];
+  allowedContracts: string[];
+  allowedRecipients: string[];
+  maxSlippageBps: number;
 };
 
 export type TransactionIntent = {
   agent: string;
+  chainId: number;
+  action: TxAction;
   token: string;
   amount: number;
-  sourceChain: string;
-  destinationChain: string;
-};
-
-export type NamedAddress = {
-  address: string;
-  name: string;
-};
-
-export type ObservedConfig = {
-  source: ConfigSource;
-  tokenAddress: string;
-  tokenSymbol: string;
-  tokenName: string;
-  endpoint: string;
-  sendLibrary: string;
-  receiveLibrary: string;
-  receiveLibraryIsDefault: boolean;
-  executor: string;
-  confirmations: number;
-  requiredDvnCount: number;
-  requiredDvns: NamedAddress[];
-  optionalDvnCount: number;
-  optionalDvnThreshold: number;
-  optionalDvns: NamedAddress[];
-  owner: string | null;
-  delegate: string | null;
-  peer: string | null;
-  peerConfigured: boolean;
-  sourceEid: number;
-  destinationEid: number;
-  sourceChainId: number;
-};
-
-export type ExpectedAssumptions = {
-  minRequiredDvns: number;
-  forbidDeadDvn: boolean;
-  minConfirmations: number;
-  expectedSendLibrary: string;
-  expectedReceiveLibrary: string;
-  expectedExecutor: string;
-  expectedEndpoint: string;
-  expectedTokenAddress: string;
-  destinationMustBePeer: boolean;
-  ownerMustBeSet: boolean;
+  recipient: string;
+  contract: string;
+  functionName: string | null;
+  value: number;
+  slippageBps: number;
+  transactionData?: string;
+  decoded: boolean;
 };
 
 export type ScoreBreakdown = {
@@ -81,12 +48,13 @@ export type PolicyDecisionRecord = {
   version: "1.0";
   timestamp: string;
   agent: string;
-  sourceChain: string;
-  sourceChainId: number;
-  destinationChain: string;
-  asset: string;
+  chainId: number;
+  action: TxAction;
+  token: string;
   amount: string;
-  checks: RuleResult[];
+  recipient: string;
+  contract: string;
+  rules: RuleResult[];
   policy: AgentPolicy;
   score: number;
   decision: Decision;
@@ -111,12 +79,17 @@ export type Explanation = {
 };
 
 export type PreflightRequest = {
-  agent: string;
-  token: string;
-  amount: number;
-  sourceChain: string;
-  destinationChain: string;
-  simulateDrift?: boolean;
+  agent?: string;
+  action?: TxAction;
+  token?: string;
+  amount?: number;
+  recipient?: string;
+  contract?: string;
+  functionName?: string | null;
+  value?: number;
+  slippageBps?: number;
+  transactionData?: string;
+  scenario?: "safe" | "over-limit" | "unlimited-approval";
   attest?: boolean;
 };
 
@@ -132,7 +105,7 @@ export type PreflightResult = {
   explanationSource: Explanation["source"];
   intent: TransactionIntent;
   policy: AgentPolicy;
-  observed: ObservedConfig;
+  source: EvalSource;
   scoreBreakdown: ScoreBreakdown;
   record: PolicyDecisionRecord;
   attestation: AttestationResult;

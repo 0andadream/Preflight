@@ -14,23 +14,11 @@ const WARN_PENALTY = {
   LOW: 1,
 } as const;
 
-const POLICY_IDS = new Set(["agent_policy_amount", "agent_policy_destination", "agent_policy_token"]);
-
 export function computeScore(checks: RuleResult[]): ScoreBreakdown {
   const penalties: ScoreBreakdown["penalties"] = [];
-  let usedPolicyPenalty = false;
 
   for (const check of checks) {
     if (check.status === "PASS") continue;
-
-    if (POLICY_IDS.has(check.id) && check.status === "FAIL") {
-      if (!usedPolicyPenalty) {
-        penalties.push({ reason: "Policy violation", delta: -25 });
-        usedPolicyPenalty = true;
-      }
-      continue;
-    }
-
     const table = check.status === "FAIL" ? FAIL_PENALTY : WARN_PENALTY;
     const delta = -table[check.severity];
     penalties.push({ reason: `${check.name} ${check.status}`, delta });

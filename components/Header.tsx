@@ -21,7 +21,7 @@ export function Header() {
           <div>
             <div className="text-sm font-medium tracking-tight">PREflight</div>
             <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-paper-500">
-              X Layer · EID 30274
+              X Layer · Chain 196
             </div>
           </div>
         </Link>

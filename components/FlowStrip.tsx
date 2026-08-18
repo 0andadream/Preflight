@@ -1,4 +1,4 @@
-const STEPS = ["AI Agent", "Preflight", "ALLOW / BLOCK", "Attest on X Layer"];
+const STEPS = ["AI Agent", "Preflight", "ALLOW / WARN / BLOCK", "X Layer"];
 
 export function FlowStrip() {
   return (

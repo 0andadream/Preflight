@@ -1,6 +1,7 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
-import type { PreflightResult } from "@/types";
+import { formatAmount } from "@/lib/policy/defaults";
+import type { PreflightResult, TxAction } from "@/types";
 
 const FILE = path.join(process.cwd(), ".data", "history.json");
 
@@ -11,9 +12,11 @@ export type HistoryEntry = {
   score: number;
   policyHash: string;
   agent: string;
+  action: TxAction;
   amount: number;
+  amountLabel: string;
   token: string;
-  destination: string;
+  recipient: string;
   simulated: boolean;
   attestationTx?: string;
 };
@@ -35,10 +38,12 @@ export async function appendHistory(result: PreflightResult): Promise<HistoryEnt
     score: result.score,
     policyHash: result.policyHash,
     agent: result.intent.agent,
+    action: result.intent.action,
     amount: result.intent.amount,
+    amountLabel: formatAmount(result.intent.amount),
     token: result.intent.token,
-    destination: result.intent.destinationChain,
-    simulated: result.observed.source === "simulation",
+    recipient: result.intent.recipient,
+    simulated: result.source === "simulation",
     attestationTx: result.attestation.txHash,
   };
   const all = await readAll();

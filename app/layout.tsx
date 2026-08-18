@@ -19,7 +19,7 @@ const mono = IBM_Plex_Mono({
 export const metadata: Metadata = {
   title: "PREflight — security checks before AI agents move money",
   description:
-    "Deterministic cross-chain security verification for autonomous agents on X Layer. Check. Decide. Attest.",
+    "Deterministic transaction security for autonomous agents on X Layer. Check. Decide. Attest.",
   icons: {
     icon: "/logo-mark.png",
     apple: "/logo-mark.png",

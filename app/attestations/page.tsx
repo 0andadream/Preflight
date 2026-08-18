@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Header } from "@/components/Header";
-import type { Decision } from "@/types";
+import type { Decision, TxAction } from "@/types";
 
 type Payload = {
   total: number;
@@ -17,9 +17,11 @@ type Payload = {
     policyHash: string;
     attestationTx?: string;
     agent: string;
+    action: TxAction;
     amount: number;
+    amountLabel: string;
     token: string;
-    destination: string;
+    recipient: string;
   } | null;
   items: {
     at: string;
@@ -27,9 +29,12 @@ type Payload = {
     score: number;
     policyHash: string;
     simulated: boolean;
+    action: TxAction;
     amount: number;
+    amountLabel: string;
     token: string;
-    destination: string;
+    agent: string;
+    attestationTx?: string;
   }[];
 };
 
@@ -53,10 +58,10 @@ export default function AttestationsPage() {
     <div className="min-h-screen">
       <Header />
       <main className="mx-auto max-w-6xl px-5 py-10">
-        <p className="mono-label text-lime">X Layer · decision log</p>
+        <p className="mono-label text-lime">X Layer · agent security log</p>
         <h1 className="mt-3 text-3xl font-medium tracking-tight">Attestations</h1>
         <p className="mt-2 max-w-xl text-sm text-paper-300">
-          A narrow operational view of preflights. No portfolio. No P&amp;L.
+          Agent security decisions. No portfolio. No P&amp;L.
         </p>
 
         <div className="mt-8 grid gap-3 sm:grid-cols-4">
@@ -75,46 +80,54 @@ export default function AttestationsPage() {
               </span>
               <span className="font-mono text-paper-300">{data.latest.score} / 100</span>
               <span className="text-sm text-paper-300">
-                {data.latest.amount} {data.latest.token} → {data.latest.destination}
+                {data.latest.action} {data.latest.amountLabel} {data.latest.token}
               </span>
             </div>
             <div className="mt-2 break-all font-mono text-[11px] text-paper-500">{data.latest.policyHash}</div>
           </section>
         )}
 
-        <section className="panel mt-4 overflow-hidden">
+        <section className="panel mt-4 overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead className="border-b border-white/[0.06] font-mono text-[10px] uppercase tracking-[0.16em] text-paper-500">
               <tr>
                 <th className="px-4 py-3">Time</th>
+                <th className="px-4 py-3">Agent</th>
+                <th className="px-4 py-3">Action</th>
+                <th className="px-4 py-3">Asset</th>
+                <th className="px-4 py-3">Amount</th>
                 <th className="px-4 py-3">Decision</th>
                 <th className="px-4 py-3">Score</th>
-                <th className="px-4 py-3">Intent</th>
-                <th className="px-4 py-3">Hash</th>
+                <th className="px-4 py-3">Policy hash</th>
+                <th className="px-4 py-3">Attestation</th>
               </tr>
             </thead>
             <tbody>
               {(data?.items ?? []).map((row) => (
                 <tr key={row.policyHash} className="border-b border-white/[0.04]">
                   <td className="px-4 py-3 font-mono text-[11px] text-paper-500">
-                    {row.at.replace("T", " ").slice(0, 19)}
+                    {row.at.replace("T", " ").slice(11, 16)}
                   </td>
+                  <td className="px-4 py-3 text-paper-300">{row.agent ?? "Treasury Agent"}</td>
+                  <td className="px-4 py-3 capitalize text-paper-300">{row.action}</td>
+                  <td className="px-4 py-3 font-mono">{row.token}</td>
+                  <td className="px-4 py-3 font-mono tabular-nums">{row.amountLabel}</td>
                   <td className={`px-4 py-3 font-mono text-[11px] ${tone[row.decision]}`}>
-                    {row.decision}
+                    {row.decision === "ALLOW" ? "✓" : row.decision === "BLOCK" ? "✕" : "!"} {row.decision}
                     {row.simulated ? <span className="ml-2 text-warn">SIM</span> : null}
                   </td>
                   <td className="px-4 py-3 font-mono tabular-nums">{row.score}</td>
-                  <td className="px-4 py-3 text-paper-300">
-                    {row.amount} {row.token} → {row.destination}
-                  </td>
                   <td className="px-4 py-3 font-mono text-[11px] text-paper-500">
                     {row.policyHash.slice(0, 10)}…{row.policyHash.slice(-6)}
+                  </td>
+                  <td className="px-4 py-3 font-mono text-[11px] text-allow">
+                    {row.attestationTx ? "VERIFIED" : "HASHED"}
                   </td>
                 </tr>
               ))}
               {data && data.items.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="px-4 py-10 text-center text-sm text-paper-500">
+                  <td colSpan={9} className="px-4 py-10 text-center text-sm text-paper-500">
                     No preflights yet.{" "}
                     <Link href="/preflight" className="text-lime">
                       Run one

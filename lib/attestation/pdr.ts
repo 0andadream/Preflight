@@ -16,7 +16,6 @@ function stable(value: unknown): unknown {
 export function buildRecord(input: {
   timestamp: string;
   intent: TransactionIntent;
-  sourceChainId: number;
   checks: RuleResult[];
   policy: AgentPolicy;
   score: number;
@@ -26,12 +25,13 @@ export function buildRecord(input: {
     version: "1.0",
     timestamp: input.timestamp,
     agent: input.intent.agent,
-    sourceChain: input.intent.sourceChain,
-    sourceChainId: input.sourceChainId,
-    destinationChain: input.intent.destinationChain,
-    asset: input.intent.token,
-    amount: String(input.intent.amount),
-    checks: input.checks,
+    chainId: input.intent.chainId,
+    action: input.intent.action,
+    token: input.intent.token,
+    amount: Number.isFinite(input.intent.amount) && input.intent.amount >= 0 ? String(input.intent.amount) : "UNLIMITED",
+    recipient: input.intent.recipient,
+    contract: input.intent.contract,
+    rules: input.checks,
     policy: input.policy,
     score: input.score,
     decision: input.decision,
