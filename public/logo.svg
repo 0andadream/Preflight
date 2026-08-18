@@ -1,0 +1,11 @@
+<svg viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="PREflight">
+  <polygon fill="#c6f04d" points="20,12 116,12 116,108"/>
+  <polygon fill="#c6f04d" points="12,54 60,54 60,102"/>
+  <g transform="translate(84 46) rotate(-18)">
+    <rect x="-13" y="-17" width="26" height="34" rx="4" fill="#07080a"/>
+    <rect x="-7.2" y="-10" width="4.2" height="10" rx="1.1" fill="#c6f04d"/>
+    <rect x="3" y="-10" width="4.2" height="10" rx="1.1" fill="#c6f04d"/>
+    <circle cx="0" cy="8" r="2.4" fill="#c6f04d"/>
+    <path d="M2.2 9.6 C10 10 12.2 4 11.4 -2" fill="none" stroke="#c6f04d" stroke-width="1.6" stroke-linecap="round"/>
+  </g>
+</svg>

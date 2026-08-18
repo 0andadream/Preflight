@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Header } from "@/components/Header";
 import { FlowStrip } from "@/components/FlowStrip";
+import { Logo } from "@/components/Logo";
 
 const ROADMAP = [
   "Agent SDK",
@@ -17,7 +18,8 @@ export default function HomePage() {
     <div className="flex min-h-screen flex-col">
       <Header />
       <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col px-5 pb-20 pt-14">
-        <p className="mono-label text-lime">Security middleware · X Layer</p>
+        <Logo className="h-16 w-16 sm:h-20 sm:w-20" />
+        <p className="mono-label mt-6 text-lime">Security middleware · X Layer</p>
         <h1 className="mt-4 max-w-3xl text-4xl font-medium tracking-tight sm:text-6xl">
           PREflight
         </h1>

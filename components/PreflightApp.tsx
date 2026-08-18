@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import type { PreflightResult, RuleResult } from "@/types";
+import { Logo } from "@/components/Logo";
 
 const STEPS = ["Endpoint", "DVNs", "Libraries", "Executor", "Owner", "Policy"] as const;
 
@@ -76,7 +77,8 @@ export function PreflightApp() {
 
   return (
     <div className="mx-auto w-full max-w-6xl px-5 py-10">
-      <p className="mono-label text-lime">X Layer · LayerZero OFT · deterministic</p>
+      <Logo className="h-10 w-10" />
+      <p className="mono-label mt-5 text-lime">X Layer · LayerZero OFT · deterministic</p>
       <h1 className="mt-3 text-3xl font-medium tracking-tight">Run a preflight</h1>
       <p className="mt-2 max-w-2xl text-sm leading-relaxed text-paper-300">
         An agent submits an intended transfer. Preflight reads the current X Layer configuration,

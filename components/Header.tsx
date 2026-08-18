@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { Logo } from "@/components/Logo";
 
 const NAV = [
   { href: "/", label: "Overview" },
@@ -16,9 +17,7 @@ export function Header() {
     <header className="border-b border-white/[0.06]">
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-5 py-3">
         <Link href="/" className="flex items-center gap-3">
-          <span className="grid h-8 w-8 place-items-center bg-lime font-mono text-[11px] font-medium text-ink">
-            PF
-          </span>
+          <Logo className="h-8 w-8" />
           <div>
             <div className="text-sm font-medium tracking-tight">PREflight</div>
             <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-paper-500">

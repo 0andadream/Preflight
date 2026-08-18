@@ -20,6 +20,10 @@ export const metadata: Metadata = {
   title: "PREflight — security checks before AI agents move money",
   description:
     "Deterministic cross-chain security verification for autonomous agents on X Layer. Check. Decide. Attest.",
+  icons: {
+    icon: "/logo-mark.png",
+    apple: "/logo-mark.png",
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
