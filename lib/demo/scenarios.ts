@@ -42,9 +42,28 @@ export function intentFromRequest(input: PreflightRequest): TransactionIntent {
   }
   if (input.scenario === "anomaly") {
     return baseIntent({
+      agent: input.agent?.trim() || TREASURY_AGENT,
       amount: 900,
       recipient: TREASURY_VAULT,
       functionName: "transfer",
+    });
+  }
+  if (input.scenario === "dvn-drop") {
+    return baseIntent({
+      amount: 400,
+      recipient: TREASURY_VAULT,
+      functionName: "send",
+      dvnRequired: 2,
+      dvnObserved: 1,
+    });
+  }
+  if (input.scenario === "compromised") {
+    return baseIntent({
+      amount: 5000,
+      recipient: UNKNOWN_ADDRESS,
+      functionName: "send",
+      dvnRequired: 2,
+      dvnObserved: 1,
     });
   }
 
@@ -62,6 +81,8 @@ export function intentFromRequest(input: PreflightRequest): TransactionIntent {
     slippageBps: input.slippageBps ?? 50,
     transactionData: input.transactionData,
     decoded,
+    dvnRequired: input.dvnRequired,
+    dvnObserved: input.dvnObserved,
   });
 }
 

@@ -88,6 +88,23 @@ describe("transaction security engine", () => {
     assert.equal(checks.find((c) => c.id === "spend_limit")?.status, "PASS");
   });
 
+  it("BLOCKs when the DVN threshold drops", () => {
+    const { decision, checks } = run({ scenario: "dvn-drop" });
+    assert.equal(decision, "BLOCK");
+    const dvn = checks.find((c) => c.id === "dvn_threshold");
+    assert.equal(dvn?.status, "FAIL");
+    assert.match(dvn?.actual || "", /1 of 2/);
+    assert.equal(checks.find((c) => c.id === "spend_limit")?.status, "PASS");
+  });
+
+  it("BLOCKs the compromised route on spend limit, recipient, and DVN", () => {
+    const { decision, checks } = run({ scenario: "compromised" });
+    assert.equal(decision, "BLOCK");
+    assert.equal(checks.find((c) => c.id === "spend_limit")?.status, "FAIL");
+    assert.equal(checks.find((c) => c.id === "recipient_allowlist")?.status, "FAIL");
+    assert.equal(checks.find((c) => c.id === "dvn_threshold")?.status, "FAIL");
+  });
+
   it("never lets the explanation rewrite the decision", () => {
     const { checks, decision, score, intent } = run({ scenario: "unlimited-approval" });
     const explained = deterministicExplanation({ decision, score, checks, intent });

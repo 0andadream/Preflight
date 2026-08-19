@@ -35,6 +35,8 @@ type Payload = {
     token: string;
     agent: string;
     attestationTx?: string;
+    demo?: boolean;
+    headline?: string;
   }[];
 };
 
@@ -61,7 +63,7 @@ export default function AttestationsPage() {
         <p className="mono-label text-lime">X Layer · agent security log</p>
         <h1 className="mt-3 text-3xl font-medium tracking-tight">Attestations</h1>
         <p className="mt-2 max-w-xl text-sm text-paper-300">
-          Agent security decisions. No portfolio. No P&amp;L.
+          Agent security decisions. Seeded demo rows are tagged. Live preflights append above them.
         </p>
 
         <div className="mt-8 grid gap-3 sm:grid-cols-4">
@@ -108,7 +110,19 @@ export default function AttestationsPage() {
                   <td className="px-4 py-3 font-mono text-[11px] text-paper-500">
                     {row.at.replace("T", " ").slice(11, 16)}
                   </td>
-                  <td className="px-4 py-3 text-paper-300">{row.agent || "—"}</td>
+                  <td className="px-4 py-3 text-paper-300">
+                    <div className="flex items-center gap-2">
+                      {row.agent || "—"}
+                      {row.demo ? (
+                        <span className="border border-warn/40 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-[0.14em] text-warn">
+                          demo
+                        </span>
+                      ) : null}
+                    </div>
+                    {row.headline ? (
+                      <div className="mt-0.5 font-mono text-[10px] text-paper-500">{row.headline}</div>
+                    ) : null}
+                  </td>
                   <td className="px-4 py-3 capitalize text-paper-300">{row.action}</td>
                   <td className="px-4 py-3 font-mono">{row.token}</td>
                   <td className="px-4 py-3 font-mono tabular-nums">{row.amountLabel}</td>

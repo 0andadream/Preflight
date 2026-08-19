@@ -17,8 +17,10 @@ export async function POST(req: Request) {
     value?: number;
     slippageBps?: number;
     transactionData?: string;
-    scenario?: "safe" | "over-limit" | "unlimited-approval" | "anomaly";
+    scenario?: "safe" | "over-limit" | "unlimited-approval" | "anomaly" | "compromised" | "dvn-drop";
     attest?: boolean;
+    dvnRequired?: number;
+    dvnObserved?: number;
   };
 
   const result = await runPreflight({
@@ -34,6 +36,8 @@ export async function POST(req: Request) {
     transactionData: body.transactionData,
     scenario: body.scenario,
     attest: body.attest,
+    dvnRequired: body.dvnRequired,
+    dvnObserved: body.dvnObserved,
   });
 
   await appendHistory(result);

@@ -32,6 +32,7 @@ export type FirewallHit = {
   checks: RuleResult[];
   gated: boolean;
   kind: "spend" | "attestation";
+  demo?: boolean;
 };
 
 export type ChainScan = {

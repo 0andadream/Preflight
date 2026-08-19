@@ -14,6 +14,7 @@ export function deterministicExplanation(input: {
   const contract = fails.find((c) => c.id === "contract_allowlist");
   const approval = fails.find((c) => c.id === "unlimited_approval");
   const token = fails.find((c) => c.id === "token_allowlist");
+  const dvn = fails.find((c) => c.id === "dvn_threshold");
 
   if (input.decision === "ALLOW") {
     return {
@@ -42,13 +43,20 @@ export function deterministicExplanation(input: {
   if (token) {
     parts.push(`${input.intent.token} is not on the token allowlist.`);
   }
+  if (dvn) {
+    parts.push(
+      `The DVN threshold dropped (${dvn.actual}; required ${dvn.expected}). This route is no longer safe to execute.`,
+    );
+  }
   if (parts.length === 0 && fails[0]) {
     parts.push(fails[0].explanation);
   }
 
   const remediation = approval
     ? "Do not execute. Grant a finite allowance to a trusted contract, or add this spender to the policy first."
-    : "Reduce the transaction amount or explicitly approve this recipient/contract before retrying.";
+    : dvn
+      ? "Do not execute. Restore the required DVN set before retrying this route."
+      : "Reduce the transaction amount or explicitly approve this recipient/contract before retrying.";
 
   return {
     summary: parts.join(" "),

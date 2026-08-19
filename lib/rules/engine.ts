@@ -31,6 +31,7 @@ export function evaluateTransaction(
     recipientAllowlist(intent, policy),
     unlimitedApproval(intent, policy),
     slippageLimit(intent, policy),
+    dvnThreshold(intent),
     simulateTransaction(intent),
     gasAnomaly(intent),
     evaluateBehavior(intent, history),
@@ -209,6 +210,35 @@ export function slippageLimit(intent: TransactionIntent, policy: AgentPolicy): R
     explanation: over
       ? "Requested slippage exceeds the agent's configured maximum."
       : "Slippage is within the agent's limit.",
+  };
+}
+
+export function dvnThreshold(intent: TransactionIntent): RuleResult {
+  if (intent.dvnRequired == null && intent.dvnObserved == null) {
+    return {
+      id: "dvn_threshold",
+      name: "DVN Threshold",
+      status: "PASS",
+      severity: "CRITICAL",
+      expected: "Applies to OFT / message routes",
+      actual: "Not a verified-message route",
+      explanation: "This intent does not use a DVN-verified message path.",
+    };
+  }
+
+  const need = intent.dvnRequired ?? 2;
+  const got = intent.dvnObserved ?? 0;
+  const ok = got >= need;
+  return {
+    id: "dvn_threshold",
+    name: "DVN Threshold",
+    status: ok ? "PASS" : "FAIL",
+    severity: "CRITICAL",
+    expected: `${need} of ${need} DVNs`,
+    actual: `${got} of ${need} DVNs`,
+    explanation: ok
+      ? "Required DVN threshold is intact."
+      : "DVN threshold dropped. The message path no longer meets the agent's security requirement.",
   };
 }
 

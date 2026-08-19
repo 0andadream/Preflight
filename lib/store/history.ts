@@ -1,5 +1,6 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { buildSeedHistory } from "@/lib/demo/catalog";
 import { formatAmount } from "@/lib/policy/defaults";
 import type { PreflightResult, TxAction } from "@/types";
 
@@ -19,6 +20,9 @@ export type HistoryEntry = {
   recipient: string;
   simulated: boolean;
   attestationTx?: string;
+  explorerUrl?: string;
+  demo?: boolean;
+  headline?: string;
 };
 
 async function readAll(): Promise<HistoryEntry[]> {
@@ -58,17 +62,23 @@ export async function listAgentHistory(agent: string) {
   return all.filter((i) => i.agent === agent);
 }
 
+function mergeHistory(live: HistoryEntry[]): HistoryEntry[] {
+  const byId = new Map<string, HistoryEntry>();
+  for (const row of buildSeedHistory()) byId.set(row.policyHash, row);
+  for (const row of live) byId.set(row.policyHash, { ...row, demo: row.demo ?? false });
+  return [...byId.values()].sort((a, b) => (a.at < b.at ? 1 : -1));
+}
+
 export async function listHistory() {
-  const items = await readAll();
-  const today = new Date().toISOString().slice(0, 10);
-  const todays = items.filter((i) => i.at.slice(0, 10) === today);
-  const pool = todays.length ? todays : items;
+  const items = mergeHistory(await readAll());
+  const demo = items.filter((i) => i.demo);
+  const live = items.filter((i) => !i.demo);
   return {
-    total: pool.length,
-    allowed: pool.filter((i) => i.decision === "ALLOW").length,
-    warnings: pool.filter((i) => i.decision === "WARN").length,
-    blocked: pool.filter((i) => i.decision === "BLOCK").length,
-    latest: items[0] ?? null,
-    items: items.slice(0, 20),
+    total: items.length,
+    allowed: items.filter((i) => i.decision === "ALLOW").length,
+    warnings: items.filter((i) => i.decision === "WARN").length,
+    blocked: items.filter((i) => i.decision === "BLOCK").length,
+    latest: live[0] ?? items[0] ?? null,
+    items: [...live.slice(0, 12), ...demo],
   };
 }

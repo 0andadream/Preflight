@@ -18,6 +18,7 @@ type Hit = {
   score: number;
   gated: boolean;
   kind: "spend" | "attestation";
+  demo?: boolean;
   intent: { action: string; token: string; amount: number; functionName: string | null };
 };
 
@@ -89,9 +90,9 @@ export default function FirewallPage() {
         <p className="mono-label text-lime">X Layer · live watcher</p>
         <h1 className="mt-3 text-3xl font-medium tracking-tight">Firewall</h1>
         <p className="mt-2 max-w-2xl text-sm text-paper-300">
-          Scans every sender in recent X Layer blocks — mainnet and testnet. Roster names are labels
-          only. A spend without a Preflight ALLOW is a BLOCK. Already-mined txs cannot be reverted;
-          the agent should halt.
+          Scans every sender in recent X Layer blocks — mainnet and testnet. Seeded demo rows (tagged)
+          sit above live traffic so the page is never empty. A spend without a Preflight ALLOW is a
+          BLOCK. Already-mined txs cannot be reverted.
         </p>
 
         <div className="mt-8 grid gap-3 sm:grid-cols-4">
@@ -168,7 +169,10 @@ export default function FirewallPage() {
                   </td>
                   <td className="px-4 py-3 font-mono text-[11px] text-paper-500">{row.blockNumber}</td>
                   <td className="px-4 py-3">
-                    <div>{row.agent}</div>
+                    <div className="flex items-center gap-2">
+                      {row.agent}
+                      {row.demo ? <DemoTag /> : null}
+                    </div>
                     <div className="font-mono text-[10px] text-paper-500">{row.from}</div>
                   </td>
                   <td className="px-4 py-3 font-mono text-[11px] uppercase text-paper-500">{row.kind}</td>
@@ -181,9 +185,13 @@ export default function FirewallPage() {
                     {row.gated ? "PASS" : "BYPASS"}
                   </td>
                   <td className="px-4 py-3 font-mono text-[11px]">
-                    <a className="text-lime hover:underline" href={row.explorerUrl} target="_blank" rel="noreferrer">
-                      {row.hash.slice(0, 10)}…
-                    </a>
+                    {row.demo || !row.explorerUrl ? (
+                      <span className="text-paper-500">{row.hash.slice(0, 10)}…</span>
+                    ) : (
+                      <a className="text-lime hover:underline" href={row.explorerUrl} target="_blank" rel="noreferrer">
+                        {row.hash.slice(0, 10)}…
+                      </a>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -209,5 +217,13 @@ function Stat({ label, value, accent }: { label: string; value: number | string;
       <div className="mono-label">{label}</div>
       <div className={`mt-2 font-mono text-3xl tabular-nums ${accent ?? ""}`}>{value}</div>
     </div>
+  );
+}
+
+function DemoTag() {
+  return (
+    <span className="border border-warn/40 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-[0.14em] text-warn">
+      demo
+    </span>
   );
 }

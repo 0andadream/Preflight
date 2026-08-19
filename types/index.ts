@@ -36,6 +36,8 @@ export type TransactionIntent = {
   slippageBps: number;
   transactionData?: string;
   decoded: boolean;
+  dvnRequired?: number;
+  dvnObserved?: number;
 };
 
 export type ScoreBreakdown = {
@@ -89,8 +91,10 @@ export type PreflightRequest = {
   value?: number;
   slippageBps?: number;
   transactionData?: string;
-  scenario?: "safe" | "over-limit" | "unlimited-approval" | "anomaly";
+  scenario?: "safe" | "over-limit" | "unlimited-approval" | "anomaly" | "compromised" | "dvn-drop";
   attest?: boolean;
+  dvnRequired?: number;
+  dvnObserved?: number;
 };
 
 export type PreflightResult = {

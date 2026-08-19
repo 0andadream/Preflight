@@ -40,15 +40,14 @@ pnpm test
 
 | Action | Expected |
 |---|---|
-| **Run Preflight** — $500 USDT → Treasury Vault | ALLOW |
-| **Simulate over-limit** — $5,000 → unknown recipient | BLOCK |
-| **Simulate unlimited approval** — `approve(unknown, MAX_UINT256)` | BLOCK |
-| **Simulate anomaly** — $900 vs this agent's ~$210 median | WARN |
-| **Run paid preflight** | x402 proof, then the same check |
+| **Scenario A — Healthy Route** | ALLOW · $500 USDT to Treasury Vault |
+| **Scenario B — Compromised Route** | BLOCK · $5,000 to unknown + DVN 1 of 2 |
+
+A custom-intent form sits below those two buttons. x402 paid checks live on `/developers` only.
 
 ### Firewall — `/firewall`
 
-Scans every sender in the last N blocks on X Layer mainnet (196) and testnet (1952). Named agents (Treasury, Market Maker, Ops Payout, or any address you name) get their policy on top of the network gate.
+Scans every sender in the last N blocks on X Layer mainnet (196) and testnet (1952), plus a labeled **demo** seed so the page is never empty on a fresh load.
 
 ### Developers — `/developers`
 
