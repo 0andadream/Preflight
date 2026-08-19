@@ -4,12 +4,12 @@
 
 A transaction firewall for autonomous agents on **X Layer**.
 
-An agent should not send a transaction blindly. It submits the intent to Preflight. Deterministic rules decide **ALLOW / WARN / BLOCK**. Grok only explains. The decision is attested on X Layer. A watcher then scans registered agent addresses on-chain: any spend without an ALLOW is recorded as a **BLOCK**.
+An agent should not send a transaction blindly. It submits the intent to Preflight. Deterministic rules decide **ALLOW / WARN / BLOCK**. Grok only explains. The decision is attested on X Layer. A watcher then scans **every sender** on recent X Layer blocks: any spend without an ALLOW is recorded as a **BLOCK**.
 
 ```
 AI AGENT → INTENT → CHECK → DECIDE → EXPLAIN → ATTEST → EXECUTE
                  ↘
-              X LAYER WATCHER (registered agents)
+              X LAYER WATCHER (every sender)
 ```
 
 AI explains. Deterministic code decides.
@@ -21,9 +21,9 @@ AI explains. Deterministic code decides.
 Preflight is two complementary things:
 
 1. **Checkpoint (opt-in)** — `POST /api/preflight`, the UI, the SDK, or MCP. The agent asks before it spends.
-2. **Network watcher (registered agents)** — `/firewall` scans recent X Layer blocks for registered agent EOAs. A mined spend with no Preflight ALLOW is a **BYPASS / BLOCK**. Already-mined EOA transactions cannot be reverted; the agent should halt. To actually prevent a spend, the agent must call `PreflightFirewall.execute()`, which reverts unless the attestation book already has ALLOW.
+2. **Network watcher** — `/firewall` scans recent X Layer mainnet and testnet blocks for **every sender**. Roster names are labels only. A mined spend with no Preflight ALLOW is a **BYPASS / BLOCK**. Already-mined EOA transactions cannot be reverted; the agent should halt. To actually prevent a spend, the agent must call `PreflightFirewall.execute()`, which reverts unless the attestation book already has ALLOW.
 
-It is not a portfolio tracker, a bridge monitor, or a chatbot. It does not watch every wallet on X Layer — only registered agents.
+It is not a portfolio tracker, a bridge monitor, or a chatbot. It watches every on-chain sender in the lookback window.
 
 ---
 
@@ -48,7 +48,7 @@ pnpm test
 
 ### Firewall — `/firewall`
 
-Watches **Treasury Agent** (`0xce9D8a28b6C18158851eb1167294f5eA90CE17Ac`), plus Market Maker Agent and Ops Payout Agent. Paste another address to watch it too.
+Scans every sender in the last N blocks on X Layer mainnet (196) and testnet (1952). Named agents (Treasury, Market Maker, Ops Payout, or any address you name) get their policy on top of the network gate.
 
 ### Developers — `/developers`
 
@@ -99,9 +99,9 @@ Scenarios: `"over-limit"` · `"unlimited-approval"` · `"anomaly"`.
 
 `POST /api/preflight/paid` — HTTP **402** until an EIP-712 `PAYMENT-SIGNATURE` is attached (x402, X Layer USDT0).
 
-`GET /api/firewall` — last N blocks of registered-agent transactions, already evaluated.
+`GET /api/firewall` — last N blocks of **every sender** on X Layer mainnet + testnet, already evaluated.
 
-`GET|POST /api/firewall/agents` — list or register an agent address to watch.
+`GET|POST /api/firewall/agents` — list or name an agent address so its policy applies.
 
 `GET /api/attestations` — decision log.
 

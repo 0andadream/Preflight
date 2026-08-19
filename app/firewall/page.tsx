@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
-import { Header } from "@/components/Header";
 import type { Decision } from "@/types";
+
+import { Header } from "@/components/Header";
 
 type Hit = {
   hash: `0x${string}`;
@@ -11,6 +11,9 @@ type Hit = {
   blockNumber: number;
   from: string;
   agent: string;
+  registered: boolean;
+  chainId: number;
+  chainLabel: string;
   decision: Decision;
   score: number;
   gated: boolean;
@@ -18,12 +21,23 @@ type Hit = {
   intent: { action: string; token: string; amount: number; functionName: string | null };
 };
 
+type ChainScan = {
+  chainId: number;
+  chainLabel: string;
+  head: number;
+  senders: number;
+  txs: number;
+  error?: string;
+};
+
 type Payload = {
   chainLabel: string;
   chainId: number;
   head: number;
-  agents: { address: string; agent: string }[];
+  agents: { address: string; agent: string; chainId: number }[];
   hits: Hit[];
+  chains?: ChainScan[];
+  scanned?: { blocks: number; senders: number; txs: number };
   error?: string;
 };
 
@@ -39,14 +53,14 @@ export default function FirewallPage() {
   const [name, setName] = useState("");
 
   async function load() {
-    const res = await fetch("/api/firewall?blocks=40", { cache: "no-store" });
+    const res = await fetch("/api/firewall?blocks=24", { cache: "no-store" });
     const body = (await res.json()) as Payload;
     setData(body);
   }
 
   useEffect(() => {
     void load();
-    const id = window.setInterval(() => void load(), 8000);
+    const id = window.setInterval(() => void load(), 12_000);
     return () => window.clearInterval(id);
   }, []);
 
@@ -59,17 +73,14 @@ export default function FirewallPage() {
     });
     setAddress("");
     setName("");
-    cacheBust();
     void load();
-  }
-
-  function cacheBust() {
-    /* next scan rebuilds */
   }
 
   const hits = data?.hits ?? [];
   const blocked = hits.filter((h) => h.decision === "BLOCK").length;
   const spends = hits.filter((h) => h.kind === "spend").length;
+  const named = (data?.agents ?? []).filter((a) => !a.agent.startsWith("Agent 0x"));
+  const chains = data?.chains ?? [];
 
   return (
     <div className="min-h-screen">
@@ -78,23 +89,39 @@ export default function FirewallPage() {
         <p className="mono-label text-lime">X Layer · live watcher</p>
         <h1 className="mt-3 text-3xl font-medium tracking-tight">Firewall</h1>
         <p className="mt-2 max-w-2xl text-sm text-paper-300">
-          Watches registered agent addresses on X Layer. Every mined transaction is decoded and run
-          through the same deterministic engine. A spend without a Preflight ALLOW is a BLOCK.
-          Already-mined txs cannot be reverted; the agent should halt.
+          Scans every sender in recent X Layer blocks — mainnet and testnet. Roster names are labels
+          only. A spend without a Preflight ALLOW is a BLOCK. Already-mined txs cannot be reverted;
+          the agent should halt.
         </p>
 
         <div className="mt-8 grid gap-3 sm:grid-cols-4">
-          <Stat label="Head" value={data?.head ?? "—"} />
-          <Stat label="Agents" value={data?.agents.length ?? 0} />
+          <Stat label="Senders" value={data?.scanned?.senders ?? 0} />
+          <Stat label="Txs scanned" value={data?.scanned?.txs ?? 0} />
           <Stat label="Spends" value={spends} />
           <Stat label="Blocked" value={blocked} accent="text-block" />
         </div>
 
+        <section className="mt-4 grid gap-3 sm:grid-cols-2">
+          {chains.map((c) => (
+            <div key={c.chainId} className="panel p-4">
+              <div className="mono-label">{c.chainLabel}</div>
+              <div className="mt-2 font-mono text-sm text-paper-300">
+                head {c.head || "—"} · {c.senders} senders · {c.txs} txs
+              </div>
+              {c.error && <p className="mt-2 font-mono text-[11px] text-block">{c.error}</p>}
+            </div>
+          ))}
+        </section>
+
         <section className="panel mt-6 p-5">
-          <div className="mono-label">Registered agents</div>
+          <div className="mono-label">Named agents</div>
+          <p className="mt-2 text-xs text-paper-500">
+            Every on-chain sender is scanned. Naming one applies that agent&apos;s policy on top of
+            the network gate.
+          </p>
           <ul className="mt-3 space-y-1 font-mono text-[11px] text-paper-300">
-            {(data?.agents ?? []).map((a) => (
-              <li key={a.address}>
+            {named.map((a) => (
+              <li key={`${a.chainId}:${a.address}`}>
                 {a.agent} · {a.address}
               </li>
             ))}
@@ -113,7 +140,7 @@ export default function FirewallPage() {
               className="w-48 border-b border-white/10 bg-transparent py-2 font-mono text-sm outline-none"
             />
             <button type="submit" className="btn-lime h-10 px-4">
-              Watch
+              Name
             </button>
           </form>
         </section>
@@ -122,6 +149,7 @@ export default function FirewallPage() {
           <table className="w-full text-left text-sm">
             <thead className="border-b border-white/[0.06] font-mono text-[10px] uppercase tracking-[0.16em] text-paper-500">
               <tr>
+                <th className="px-4 py-3">Chain</th>
                 <th className="px-4 py-3">Block</th>
                 <th className="px-4 py-3">Agent</th>
                 <th className="px-4 py-3">Kind</th>
@@ -134,9 +162,15 @@ export default function FirewallPage() {
             </thead>
             <tbody>
               {hits.map((row) => (
-                <tr key={row.hash} className="border-b border-white/[0.04]">
+                <tr key={`${row.chainId}:${row.hash}`} className="border-b border-white/[0.04]">
+                  <td className="px-4 py-3 font-mono text-[11px] text-paper-500">
+                    {row.chainId === 196 ? "X Layer" : "Testnet"}
+                  </td>
                   <td className="px-4 py-3 font-mono text-[11px] text-paper-500">{row.blockNumber}</td>
-                  <td className="px-4 py-3">{row.agent}</td>
+                  <td className="px-4 py-3">
+                    <div>{row.agent}</div>
+                    <div className="font-mono text-[10px] text-paper-500">{row.from}</div>
+                  </td>
                   <td className="px-4 py-3 font-mono text-[11px] uppercase text-paper-500">{row.kind}</td>
                   <td className="px-4 py-3 font-mono text-[11px] text-paper-300">
                     {row.intent.action} {row.intent.functionName ? `· ${row.intent.functionName}` : ""}
@@ -155,12 +189,8 @@ export default function FirewallPage() {
               ))}
               {data && hits.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="px-4 py-10 text-center text-sm text-paper-500">
-                    No agent transactions in the last 40 blocks.{" "}
-                    <Link href="/preflight" className="text-lime">
-                      Run a preflight
-                    </Link>{" "}
-                    to generate an attestation write.
+                  <td colSpan={9} className="px-4 py-10 text-center text-sm text-paper-500">
+                    No transactions in the last {data.scanned?.blocks ?? 24} blocks on X Layer.
                   </td>
                 </tr>
               )}

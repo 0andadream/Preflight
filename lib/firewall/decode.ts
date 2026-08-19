@@ -1,26 +1,10 @@
-import { decodeFunctionData, formatEther, hexToBigInt, isHex, toFunctionSelector } from "viem";
+import { decodeFunctionData, formatEther, hexToBigInt, isHex, parseAbi, toFunctionSelector } from "viem";
 import type { TransactionIntent, TxAction } from "@/types";
 
-const erc20Abi = [
-  {
-    type: "function",
-    name: "transfer",
-    inputs: [
-      { name: "to", type: "address" },
-      { name: "amount", type: "uint256" },
-    ],
-    outputs: [{ type: "bool" }],
-  },
-  {
-    type: "function",
-    name: "approve",
-    inputs: [
-      { name: "spender", type: "address" },
-      { name: "amount", type: "uint256" },
-    ],
-    outputs: [{ type: "bool" }],
-  },
-] as const;
+const erc20Abi = parseAbi([
+  "function transfer(address to, uint256 amount) returns (bool)",
+  "function approve(address spender, uint256 amount) returns (bool)",
+]);
 
 const ATTEST_PREFIX = toFunctionSelector("attest(bytes32,uint8,uint8,bytes32)");
 
@@ -93,11 +77,13 @@ export function decodeObservedTx(tx: ObservedTx, agentName: string, chainId: num
   try {
     const decoded = decodeFunctionData({ abi: erc20Abi, data: input });
     if (decoded.functionName === "transfer") {
-      const [to, amount] = decoded.args;
+      const [to, amount] = decoded.args ?? [];
+      if (typeof to !== "string" || typeof amount !== "bigint") throw new Error("bad transfer");
       return intent(agentName, chainId, "transfer", tx, to, amount, "transfer", true);
     }
     if (decoded.functionName === "approve") {
-      const [spender, amount] = decoded.args;
+      const [spender, amount] = decoded.args ?? [];
+      if (typeof spender !== "string" || typeof amount !== "bigint") throw new Error("bad approve");
       const unlimited = amount === hexToBigInt("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
       return {
         ...intent(agentName, chainId, "approve", tx, spender, amount, "approve", true),

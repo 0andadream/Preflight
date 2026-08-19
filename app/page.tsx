@@ -24,8 +24,8 @@ export default function HomePage() {
           Deterministic transaction security for autonomous agents on X Layer.
         </p>
         <p className="mt-3 max-w-2xl text-sm leading-relaxed text-paper-300">
-          Agents should call Preflight before they spend. The firewall also watches registered agent
-          addresses on X Layer: any mined spend without an ALLOW is recorded as a BLOCK.
+          Agents should call Preflight before they spend. The firewall scans every sender on X Layer:
+          any mined spend without an ALLOW is recorded as a BLOCK.
         </p>
 
         <div className="mt-8 flex flex-wrap gap-3">
