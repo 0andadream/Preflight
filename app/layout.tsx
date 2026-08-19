@@ -27,9 +27,15 @@ export const metadata: Metadata = {
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
+  const sha = (process.env.VERCEL_GIT_COMMIT_SHA || "local").slice(0, 7);
   return (
     <html lang="en" className={`${sans.variable} ${mono.variable}`}>
-      <body className="font-sans antialiased">{children}</body>
+      <body className="font-sans antialiased">
+        {children}
+        <div className="pointer-events-none fixed bottom-3 right-4 font-mono text-[10px] uppercase tracking-[0.14em] text-paper-500">
+          build {sha}
+        </div>
+      </body>
     </html>
   );
 }
