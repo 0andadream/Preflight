@@ -1,9 +1,10 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { getAddress, isAddress } from "viem";
+import { dataFile } from "@/lib/store/data-dir";
 import { AGENT_ROSTER, shortAddress } from "@/lib/policy/defaults";
 
-const FILE = path.join(process.cwd(), ".data", "agents.json");
+const FILE = dataFile("agents.json");
 
 export type RegisteredAgent = {
   address: `0x${string}`;
@@ -36,7 +37,7 @@ export async function listAgents(): Promise<RegisteredAgent[]> {
   }
 
   const merged = [...byAddr.values()];
-  await saveAgents(merged);
+  await saveAgents(merged).catch(() => undefined);
   return merged;
 }
 

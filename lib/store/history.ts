@@ -2,9 +2,10 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { buildSeedHistory } from "@/lib/demo/catalog";
 import { formatAmount } from "@/lib/policy/defaults";
+import { dataFile } from "@/lib/store/data-dir";
 import type { PreflightResult, TxAction } from "@/types";
 
-const FILE = path.join(process.cwd(), ".data", "history.json");
+const FILE = dataFile("history.json");
 
 export type HistoryEntry = {
   id: string;
